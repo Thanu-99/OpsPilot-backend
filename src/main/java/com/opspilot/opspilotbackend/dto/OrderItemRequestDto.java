@@ -7,11 +7,9 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class InventoryRequestDto {
+public class OrderItemRequestDto {
 
     private Long productId;
 
     private Integer quantity;
-
-    private Integer reorderLevel;
 }

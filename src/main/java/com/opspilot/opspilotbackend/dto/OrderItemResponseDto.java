@@ -2,14 +2,14 @@ package com.opspilot.opspilotbackend.dto;
 
 import lombok.*;
 
-import java.time.LocalDateTime;
+import java.math.BigDecimal;
 
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class InventoryResponseDto {
+public class OrderItemResponseDto {
 
     private Long id;
 
@@ -19,11 +19,7 @@ public class InventoryResponseDto {
 
     private Integer quantity;
 
-    private Integer reorderLevel;
+    private BigDecimal unitPrice;
 
-    private boolean active;
-
-    private LocalDateTime createdAt;
-
-    private LocalDateTime updatedAt;
+    private BigDecimal subtotal;
 }

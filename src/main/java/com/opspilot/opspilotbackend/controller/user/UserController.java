@@ -3,6 +3,7 @@ package com.opspilot.opspilotbackend.controller.user;
 import com.opspilot.opspilotbackend.dto.UserRequestDto;
 import com.opspilot.opspilotbackend.dto.UserResponseDto;
 import com.opspilot.opspilotbackend.service.UserService;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -18,21 +19,30 @@ public class UserController {
     }
 
     @PostMapping
-    public UserResponseDto createUser(@RequestBody UserRequestDto request) {
+    @PreAuthorize("hasRole('ADMIN')")
+    public UserResponseDto createUser(
+            @RequestBody UserRequestDto request) {
+
         return userService.createUser(request);
     }
 
     @GetMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public List<UserResponseDto> getAllUsers() {
+
         return userService.getAllUsers();
     }
 
     @GetMapping("/{id}")
-    public UserResponseDto getUserById(@PathVariable Long id) {
+    @PreAuthorize("hasRole('ADMIN')")
+    public UserResponseDto getUserById(
+            @PathVariable Long id) {
+
         return userService.getUserById(id);
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public UserResponseDto updateUser(
             @PathVariable Long id,
             @RequestBody UserRequestDto request) {
@@ -41,7 +51,9 @@ public class UserController {
     }
 
     @DeleteMapping("/{id}")
-    public String deleteUser(@PathVariable Long id) {
+    @PreAuthorize("hasRole('ADMIN')")
+    public String deleteUser(
+            @PathVariable Long id) {
 
         userService.deleteUser(id);
 

@@ -3,6 +3,7 @@ package com.opspilot.opspilotbackend.controller.company;
 import com.opspilot.opspilotbackend.dto.CompanyRequestDto;
 import com.opspilot.opspilotbackend.dto.CompanyResponseDto;
 import com.opspilot.opspilotbackend.service.CompanyService;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -18,21 +19,30 @@ public class CompanyController {
     }
 
     @PostMapping
-    public CompanyResponseDto createCompany(@RequestBody CompanyRequestDto request) {
+    @PreAuthorize("hasRole('ADMIN')")
+    public CompanyResponseDto createCompany(
+            @RequestBody CompanyRequestDto request) {
+
         return companyService.createCompany(request);
     }
 
     @GetMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public List<CompanyResponseDto> getAllCompanies() {
+
         return companyService.getAllCompanies();
     }
 
     @GetMapping("/{id}")
-    public CompanyResponseDto getCompanyById(@PathVariable Long id) {
+    @PreAuthorize("hasRole('ADMIN')")
+    public CompanyResponseDto getCompanyById(
+            @PathVariable Long id) {
+
         return companyService.getCompanyById(id);
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public CompanyResponseDto updateCompany(
             @PathVariable Long id,
             @RequestBody CompanyRequestDto request) {
@@ -41,7 +51,10 @@ public class CompanyController {
     }
 
     @DeleteMapping("/{id}")
-    public void deleteCompany(@PathVariable Long id) {
+    @PreAuthorize("hasRole('ADMIN')")
+    public void deleteCompany(
+            @PathVariable Long id) {
+
         companyService.deleteCompany(id);
     }
 }

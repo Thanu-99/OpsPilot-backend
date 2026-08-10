@@ -1,27 +1,26 @@
 package com.opspilot.opspilotbackend.dto;
 
+import com.opspilot.opspilotbackend.entity.OrderStatus;
 import lombok.*;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class InventoryResponseDto {
+public class OrderResponseDto {
 
     private Long id;
 
-    private Long productId;
+    private BigDecimal totalAmount;
 
-    private String productName;
+    private OrderStatus status;
 
-    private Integer quantity;
-
-    private Integer reorderLevel;
-
-    private boolean active;
+    private List<OrderItemResponseDto> items;
 
     private LocalDateTime createdAt;
 

@@ -3,6 +3,7 @@ package com.opspilot.opspilotbackend.controller.product;
 import com.opspilot.opspilotbackend.dto.ProductRequestDto;
 import com.opspilot.opspilotbackend.dto.ProductResponseDto;
 import com.opspilot.opspilotbackend.service.ProductService;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -18,6 +19,7 @@ public class ProductController {
     }
 
     @PostMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     public ProductResponseDto createProduct(
             @RequestBody ProductRequestDto request) {
 
@@ -25,12 +27,14 @@ public class ProductController {
     }
 
     @GetMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'EMPLOYEE')")
     public List<ProductResponseDto> getAllProducts() {
 
         return productService.getAllProducts();
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'EMPLOYEE')")
     public ProductResponseDto getProductById(
             @PathVariable Long id) {
 
@@ -38,6 +42,7 @@ public class ProductController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     public ProductResponseDto updateProduct(
             @PathVariable Long id,
             @RequestBody ProductRequestDto request) {
@@ -46,6 +51,7 @@ public class ProductController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public void deleteProduct(
             @PathVariable Long id) {
 

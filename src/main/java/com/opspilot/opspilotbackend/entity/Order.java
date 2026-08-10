@@ -7,37 +7,26 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "products")
+@Table(name = "orders")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Product {
+public class Order {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @Column(nullable = false)
-    private String name;
+    private BigDecimal totalAmount;
 
-    @Column(length = 1000)
-    private String description;
-
-    @Column(nullable = false, precision = 12, scale = 2)
-    private BigDecimal price;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private OrderStatus status;
 
     @Column(nullable = false)
-    private Integer quantity;
-
-    private String category;
-
-    private String sku;
-
-    @Column(nullable = false)
-    private boolean active;
-
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;
@@ -46,7 +35,10 @@ public class Product {
     public void onCreate() {
         createdAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
-        active = true;
+
+        if (status == null) {
+            status = OrderStatus.PENDING;
+        }
     }
 
     @PreUpdate
