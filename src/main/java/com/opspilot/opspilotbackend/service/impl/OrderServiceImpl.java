@@ -8,12 +8,17 @@ import com.opspilot.opspilotbackend.entity.Order;
 import com.opspilot.opspilotbackend.entity.OrderItem;
 import com.opspilot.opspilotbackend.entity.OrderStatus;
 import com.opspilot.opspilotbackend.entity.Product;
+import com.opspilot.opspilotbackend.entity.User;
 import com.opspilot.opspilotbackend.mapper.OrderMapper;
 import com.opspilot.opspilotbackend.repository.InventoryRepository;
 import com.opspilot.opspilotbackend.repository.OrderItemRepository;
 import com.opspilot.opspilotbackend.repository.OrderRepository;
 import com.opspilot.opspilotbackend.repository.ProductRepository;
+import com.opspilot.opspilotbackend.repository.UserRepository;
+import com.opspilot.opspilotbackend.service.AuditLogService;
 import com.opspilot.opspilotbackend.service.OrderService;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,17 +34,23 @@ public class OrderServiceImpl implements OrderService {
     private final OrderItemRepository orderItemRepository;
     private final ProductRepository productRepository;
     private final InventoryRepository inventoryRepository;
+    private final AuditLogService auditLogService;
+    private final UserRepository userRepository;
 
     public OrderServiceImpl(
             OrderRepository orderRepository,
             OrderItemRepository orderItemRepository,
             ProductRepository productRepository,
-            InventoryRepository inventoryRepository) {
+            InventoryRepository inventoryRepository,
+            AuditLogService auditLogService,
+            UserRepository userRepository) {
 
         this.orderRepository = orderRepository;
         this.orderItemRepository = orderItemRepository;
         this.productRepository = productRepository;
         this.inventoryRepository = inventoryRepository;
+        this.auditLogService = auditLogService;
+        this.userRepository = userRepository;
     }
 
     @Override
@@ -64,20 +75,25 @@ public class OrderServiceImpl implements OrderService {
             Product product = productRepository.findById(itemRequest.getProductId())
                     .orElseThrow(() -> new RuntimeException("Product not found"));
 
-            if (itemRequest.getQuantity() == null || itemRequest.getQuantity() <= 0) {
+            if (itemRequest.getQuantity() == null ||
+                    itemRequest.getQuantity() <= 0) {
+
                 throw new RuntimeException("Quantity must be greater than zero");
             }
 
-            Inventory inventory = inventoryRepository.findByProductId(product.getId())
+            Inventory inventory = inventoryRepository
+                    .findByProductId(product.getId())
                     .orElseThrow(() ->
                             new RuntimeException(
-                                    "Inventory not found for product: " + product.getName()
+                                    "Inventory not found for product: "
+                                            + product.getName()
                             )
                     );
 
             if (inventory.getQuantity() < itemRequest.getQuantity()) {
                 throw new RuntimeException(
-                        "Insufficient stock for product: " + product.getName()
+                        "Insufficient stock for product: "
+                                + product.getName()
                 );
             }
 
@@ -109,6 +125,13 @@ public class OrderServiceImpl implements OrderService {
         order = orderRepository.save(order);
 
         orderItemRepository.saveAll(orderItems);
+
+        audit(
+                "CREATE",
+                "ORDER",
+                order.getId(),
+                "Created order with total amount: " + totalAmount
+        );
 
         return OrderMapper.toResponse(order, orderItems);
     }
@@ -154,14 +177,14 @@ public class OrderServiceImpl implements OrderService {
 
         for (OrderItem item : existingItems) {
 
-            Inventory inventory = inventoryRepository.findByProductId(
-                    item.getProduct().getId()
-            ).orElseThrow(() ->
-                    new RuntimeException(
-                            "Inventory not found for product: "
-                                    + item.getProduct().getName()
-                    )
-            );
+            Inventory inventory = inventoryRepository
+                    .findByProductId(item.getProduct().getId())
+                    .orElseThrow(() ->
+                            new RuntimeException(
+                                    "Inventory not found for product: "
+                                            + item.getProduct().getName()
+                            )
+                    );
 
             inventory.setQuantity(
                     inventory.getQuantity() + item.getQuantity()
@@ -177,14 +200,22 @@ public class OrderServiceImpl implements OrderService {
 
         for (OrderItemRequestDto itemRequest : request.getItems()) {
 
-            Product product = productRepository.findById(itemRequest.getProductId())
-                    .orElseThrow(() -> new RuntimeException("Product not found"));
+            Product product = productRepository
+                    .findById(itemRequest.getProductId())
+                    .orElseThrow(() ->
+                            new RuntimeException("Product not found")
+                    );
 
-            if (itemRequest.getQuantity() == null || itemRequest.getQuantity() <= 0) {
-                throw new RuntimeException("Quantity must be greater than zero");
+            if (itemRequest.getQuantity() == null ||
+                    itemRequest.getQuantity() <= 0) {
+
+                throw new RuntimeException(
+                        "Quantity must be greater than zero"
+                );
             }
 
-            Inventory inventory = inventoryRepository.findByProductId(product.getId())
+            Inventory inventory = inventoryRepository
+                    .findByProductId(product.getId())
                     .orElseThrow(() ->
                             new RuntimeException(
                                     "Inventory not found for product: "
@@ -194,7 +225,8 @@ public class OrderServiceImpl implements OrderService {
 
             if (inventory.getQuantity() < itemRequest.getQuantity()) {
                 throw new RuntimeException(
-                        "Insufficient stock for product: " + product.getName()
+                        "Insufficient stock for product: "
+                                + product.getName()
                 );
             }
 
@@ -228,6 +260,13 @@ public class OrderServiceImpl implements OrderService {
 
         orderItemRepository.saveAll(newItems);
 
+        audit(
+                "UPDATE",
+                "ORDER",
+                order.getId(),
+                "Updated order. New total amount: " + totalAmount
+        );
+
         return OrderMapper.toResponse(order, newItems);
     }
 
@@ -257,6 +296,16 @@ public class OrderServiceImpl implements OrderService {
 
         order = orderRepository.save(order);
 
+        audit(
+                "STATUS_CHANGE",
+                "ORDER",
+                order.getId(),
+                "Order status changed from "
+                        + currentStatus
+                        + " to "
+                        + status
+        );
+
         List<OrderItem> items =
                 orderItemRepository.findByOrderId(id);
 
@@ -274,14 +323,14 @@ public class OrderServiceImpl implements OrderService {
 
         for (OrderItem item : items) {
 
-            Inventory inventory = inventoryRepository.findByProductId(
-                    item.getProduct().getId()
-            ).orElseThrow(() ->
-                    new RuntimeException(
-                            "Inventory not found for product: "
-                                    + item.getProduct().getName()
-                    )
-            );
+            Inventory inventory = inventoryRepository
+                    .findByProductId(item.getProduct().getId())
+                    .orElseThrow(() ->
+                            new RuntimeException(
+                                    "Inventory not found for product: "
+                                            + item.getProduct().getName()
+                            )
+                    );
 
             inventory.setQuantity(
                     inventory.getQuantity() + item.getQuantity()
@@ -292,5 +341,45 @@ public class OrderServiceImpl implements OrderService {
 
         orderItemRepository.deleteAll(items);
         orderRepository.delete(order);
+
+        audit(
+                "DELETE",
+                "ORDER",
+                id,
+                "Deleted order"
+        );
+    }
+
+    private void audit(
+            String action,
+            String entityType,
+            Long entityId,
+            String details) {
+
+        Authentication authentication =
+                SecurityContextHolder
+                        .getContext()
+                        .getAuthentication();
+
+        if (authentication == null ||
+                authentication.getName() == null) {
+            return;
+        }
+
+        User user = userRepository
+                .findByEmail(authentication.getName())
+                .orElseThrow(() ->
+                        new RuntimeException(
+                                "Authenticated user not found"
+                        )
+                );
+
+        auditLogService.createAuditLog(
+                user.getId(),
+                action,
+                entityType,
+                entityId,
+                details
+        );
     }
 }
