@@ -10,6 +10,7 @@ public interface ProductService {
     ProductResponseDto createProduct(ProductRequestDto request);
 
     List<ProductResponseDto> getAllProducts();
+    ProductResponseDto getProductByName(String name);
 
     ProductResponseDto getProductById(Long id);
 

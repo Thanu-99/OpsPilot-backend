@@ -73,7 +73,16 @@ public class ProductServiceImpl implements ProductService {
 
         return ProductMapper.toResponse(product);
     }
+    @Override
+    public ProductResponseDto getProductByName(String name) {
 
+        Product product = productRepository.findByNameIgnoreCase(name)
+                .orElseThrow(() ->
+                        new RuntimeException("Product not found: " + name)
+                );
+
+        return ProductMapper.toResponse(product);
+    }
     @Override
     public ProductResponseDto updateProduct(
             Long id,
