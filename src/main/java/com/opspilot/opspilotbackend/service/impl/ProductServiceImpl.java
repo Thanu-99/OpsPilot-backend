@@ -1,5 +1,6 @@
 package com.opspilot.opspilotbackend.service.impl;
 
+import com.opspilot.opspilotbackend.exception.ResourceNotFoundException;
 import com.opspilot.opspilotbackend.dto.ProductRequestDto;
 import com.opspilot.opspilotbackend.dto.ProductResponseDto;
 import com.opspilot.opspilotbackend.entity.Product;
@@ -9,6 +10,8 @@ import com.opspilot.opspilotbackend.repository.ProductRepository;
 import com.opspilot.opspilotbackend.repository.UserRepository;
 import com.opspilot.opspilotbackend.service.AuditLogService;
 import com.opspilot.opspilotbackend.service.ProductService;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -35,12 +38,15 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
+    @CacheEvict(value = "products", allEntries = true)
     public ProductResponseDto createProduct(ProductRequestDto request) {
 
         if (request.getSku() != null &&
                 productRepository.existsBySku(request.getSku())) {
 
-            throw new RuntimeException("Product with this SKU already exists");
+            throw new ResourceNotFoundException(
+                    "Product with this SKU already exists"
+            );
         }
 
         Product product = ProductMapper.toEntity(request);
@@ -57,6 +63,7 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
+    @Cacheable(value = "products")
     public List<ProductResponseDto> getAllProducts() {
 
         return productRepository.findAll()
@@ -66,30 +73,41 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
+    @Cacheable(value = "products", key = "#id")
     public ProductResponseDto getProductById(Long id) {
 
         Product product = productRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Product not found"));
-
-        return ProductMapper.toResponse(product);
-    }
-    @Override
-    public ProductResponseDto getProductByName(String name) {
-
-        Product product = productRepository.findByNameIgnoreCase(name)
                 .orElseThrow(() ->
-                        new RuntimeException("Product not found: " + name)
+                        new ResourceNotFoundException("Product not found")
                 );
 
         return ProductMapper.toResponse(product);
     }
+
     @Override
+    @Cacheable(value = "products", key = "'name:' + #name")
+    public ProductResponseDto getProductByName(String name) {
+
+        Product product = productRepository.findByNameIgnoreCase(name)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Product not found: " + name
+                        )
+                );
+
+        return ProductMapper.toResponse(product);
+    }
+
+    @Override
+    @CacheEvict(value = "products", allEntries = true)
     public ProductResponseDto updateProduct(
             Long id,
             ProductRequestDto request) {
 
         Product product = productRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Product not found"));
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Product not found")
+                );
 
         product.setName(request.getName());
         product.setDescription(request.getDescription());
@@ -111,10 +129,13 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
+    @CacheEvict(value = "products", allEntries = true)
     public void deleteProduct(Long id) {
 
         Product product = productRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Product not found"));
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Product not found")
+                );
 
         productRepository.delete(product);
 
@@ -142,9 +163,12 @@ public class ProductServiceImpl implements ProductService {
             return;
         }
 
-        User user = userRepository.findByEmail(authentication.getName())
+        User user = userRepository
+                .findByEmail(authentication.getName())
                 .orElseThrow(() ->
-                        new RuntimeException("Authenticated user not found")
+                        new ResourceNotFoundException(
+                                "Authenticated user not found"
+                        )
                 );
 
         auditLogService.createAuditLog(

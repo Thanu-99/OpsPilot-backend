@@ -1,5 +1,5 @@
 package com.opspilot.opspilotbackend.service.impl;
-
+import com.opspilot.opspilotbackend.exception.ResourceNotFoundException;
 import com.opspilot.opspilotbackend.dto.UserRequestDto;
 import com.opspilot.opspilotbackend.dto.UserResponseDto;
 import com.opspilot.opspilotbackend.entity.User;
@@ -60,7 +60,7 @@ public class UserServiceImpl implements UserService {
 
         User user = userRepository.findById(id)
                 .orElseThrow(() ->
-                        new RuntimeException("User not found")
+                        new ResourceNotFoundException("User not found")
                 );
 
         return UserMapper.toResponseDto(user);
@@ -73,7 +73,7 @@ public class UserServiceImpl implements UserService {
 
         User user = userRepository.findById(id)
                 .orElseThrow(() ->
-                        new RuntimeException("User not found")
+                        new ResourceNotFoundException("User not found")
                 );
 
         user.setFirstName(request.getFirstName());
@@ -101,7 +101,7 @@ public class UserServiceImpl implements UserService {
 
         User user = userRepository.findById(id)
                 .orElseThrow(() ->
-                        new RuntimeException("User not found")
+                        new ResourceNotFoundException("User not found")
                 );
 
         String email = user.getEmail();
@@ -135,7 +135,7 @@ public class UserServiceImpl implements UserService {
         User currentUser = userRepository
                 .findByEmail(authentication.getName())
                 .orElseThrow(() ->
-                        new RuntimeException(
+                        new ResourceNotFoundException(
                                 "Authenticated user not found"
                         )
                 );

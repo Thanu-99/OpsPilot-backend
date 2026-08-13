@@ -26,46 +26,94 @@ public class AIOrchestrator {
         this.analyticsAgent = analyticsAgent;
     }
 
-    public String route(String message) {
-
-        StringBuilder results = new StringBuilder();
+    public RoutingResult route(String message) {
 
         String inventoryResponse = inventoryAgent.handle(message);
+        String orderResponse = orderAgent.handle(message);
+        String productResponse = productAgent.handle(message);
+        String analyticsResponse = analyticsAgent.handle(message);
+
+        StringBuilder results = new StringBuilder();
+        int matchedAgents = 0;
+        String singleAgentResponse = null;
 
         if (inventoryResponse != null) {
+            matchedAgents++;
+            singleAgentResponse = inventoryResponse;
+
             results.append("INVENTORY DATA:\n")
                     .append(inventoryResponse)
                     .append("\n\n");
         }
 
-        String orderResponse = orderAgent.handle(message);
-
         if (orderResponse != null) {
+            matchedAgents++;
+            singleAgentResponse = orderResponse;
+
             results.append("ORDER DATA:\n")
                     .append(orderResponse)
                     .append("\n\n");
         }
 
-        String productResponse = productAgent.handle(message);
-
         if (productResponse != null) {
+            matchedAgents++;
+            singleAgentResponse = productResponse;
+
             results.append("PRODUCT DATA:\n")
                     .append(productResponse)
                     .append("\n\n");
         }
 
-        String analyticsResponse = analyticsAgent.handle(message);
-
         if (analyticsResponse != null) {
+            matchedAgents++;
+            singleAgentResponse = analyticsResponse;
+
             results.append("ANALYTICS DATA:\n")
                     .append(analyticsResponse)
                     .append("\n\n");
         }
 
-        if (results.isEmpty()) {
-            return null;
+        if (matchedAgents == 0) {
+            return new RoutingResult(null, 0, null);
         }
 
-        return results.toString().trim();
+        return new RoutingResult(
+                results.toString().trim(),
+                matchedAgents,
+                matchedAgents == 1 ? singleAgentResponse : null
+        );
+    }
+
+    public static class RoutingResult {
+
+        private final String agentData;
+        private final int matchedAgents;
+        private final String directResponse;
+
+        public RoutingResult(
+                String agentData,
+                int matchedAgents,
+                String directResponse) {
+
+            this.agentData = agentData;
+            this.matchedAgents = matchedAgents;
+            this.directResponse = directResponse;
+        }
+
+        public String getAgentData() {
+            return agentData;
+        }
+
+        public int getMatchedAgents() {
+            return matchedAgents;
+        }
+
+        public String getDirectResponse() {
+            return directResponse;
+        }
+
+        public boolean isSimpleQuery() {
+            return matchedAgents == 1;
+        }
     }
 }

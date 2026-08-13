@@ -1,5 +1,5 @@
 package com.opspilot.opspilotbackend.controller.order;
-
+import jakarta.validation.Valid;
 import com.opspilot.opspilotbackend.dto.OrderRequestDto;
 import com.opspilot.opspilotbackend.dto.OrderResponseDto;
 import com.opspilot.opspilotbackend.entity.OrderStatus;
@@ -22,7 +22,7 @@ public class OrderController {
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'EMPLOYEE')")
     public OrderResponseDto createOrder(
-            @RequestBody OrderRequestDto request) {
+            @Valid @RequestBody OrderRequestDto request) {
 
         return orderService.createOrder(request);
     }
@@ -46,7 +46,7 @@ public class OrderController {
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     public OrderResponseDto updateOrder(
             @PathVariable Long id,
-            @RequestBody OrderRequestDto request) {
+            @Valid @RequestBody OrderRequestDto request) {
 
         return orderService.updateOrder(id, request);
     }

@@ -1,5 +1,5 @@
 package com.opspilot.opspilotbackend.service.impl;
-
+import com.opspilot.opspilotbackend.exception.ResourceNotFoundException;
 import com.opspilot.opspilotbackend.dto.CompanyRequestDto;
 import com.opspilot.opspilotbackend.dto.CompanyResponseDto;
 import com.opspilot.opspilotbackend.entity.Company;
@@ -39,7 +39,7 @@ public class CompanyServiceImpl implements CompanyService {
             CompanyRequestDto request) {
 
         if (companyRepository.existsByName(request.getName())) {
-            throw new RuntimeException("Company already exists");
+            throw new ResourceNotFoundException("Company already exists");
         }
 
         Company company = CompanyMapper.toEntity(request);
@@ -70,7 +70,7 @@ public class CompanyServiceImpl implements CompanyService {
 
         Company company = companyRepository.findById(id)
                 .orElseThrow(() ->
-                        new RuntimeException("Company not found")
+                        new ResourceNotFoundException("Company not found")
                 );
 
         return CompanyMapper.toResponse(company);
@@ -83,7 +83,7 @@ public class CompanyServiceImpl implements CompanyService {
 
         Company company = companyRepository.findById(id)
                 .orElseThrow(() ->
-                        new RuntimeException("Company not found")
+                        new ResourceNotFoundException("Company not found")
                 );
 
         company.setName(request.getName());
@@ -108,7 +108,7 @@ public class CompanyServiceImpl implements CompanyService {
 
         Company company = companyRepository.findById(id)
                 .orElseThrow(() ->
-                        new RuntimeException("Company not found")
+                        new ResourceNotFoundException("Company not found")
                 );
 
         String companyName = company.getName();
@@ -142,7 +142,7 @@ public class CompanyServiceImpl implements CompanyService {
         User currentUser = userRepository
                 .findByEmail(authentication.getName())
                 .orElseThrow(() ->
-                        new RuntimeException(
+                        new ResourceNotFoundException(
                                 "Authenticated user not found"
                         )
                 );

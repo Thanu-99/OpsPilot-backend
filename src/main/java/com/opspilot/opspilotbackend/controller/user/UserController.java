@@ -1,5 +1,5 @@
 package com.opspilot.opspilotbackend.controller.user;
-
+import jakarta.validation.Valid;
 import com.opspilot.opspilotbackend.dto.UserRequestDto;
 import com.opspilot.opspilotbackend.dto.UserResponseDto;
 import com.opspilot.opspilotbackend.service.UserService;
@@ -21,7 +21,7 @@ public class UserController {
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
     public UserResponseDto createUser(
-            @RequestBody UserRequestDto request) {
+            @Valid @RequestBody UserRequestDto request) {
 
         return userService.createUser(request);
     }
@@ -45,7 +45,7 @@ public class UserController {
     @PreAuthorize("hasRole('ADMIN')")
     public UserResponseDto updateUser(
             @PathVariable Long id,
-            @RequestBody UserRequestDto request) {
+            @Valid @RequestBody UserRequestDto request) {
 
         return userService.updateUser(id, request);
     }

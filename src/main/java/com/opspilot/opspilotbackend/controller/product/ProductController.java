@@ -1,5 +1,5 @@
 package com.opspilot.opspilotbackend.controller.product;
-
+import jakarta.validation.Valid;
 import com.opspilot.opspilotbackend.dto.ProductRequestDto;
 import com.opspilot.opspilotbackend.dto.ProductResponseDto;
 import com.opspilot.opspilotbackend.service.ProductService;
@@ -21,7 +21,7 @@ public class ProductController {
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     public ProductResponseDto createProduct(
-            @RequestBody ProductRequestDto request) {
+            @Valid @RequestBody ProductRequestDto request) {
 
         return productService.createProduct(request);
     }
@@ -45,7 +45,7 @@ public class ProductController {
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     public ProductResponseDto updateProduct(
             @PathVariable Long id,
-            @RequestBody ProductRequestDto request) {
+            @Valid @RequestBody ProductRequestDto request) {
 
         return productService.updateProduct(id, request);
     }

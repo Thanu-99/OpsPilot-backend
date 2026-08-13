@@ -27,6 +27,11 @@ public class SecurityConfig {
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(
+                                "/swagger-ui/**",
+                                "/swagger-ui.html",
+                                "/v3/api-docs/**"
+                        ).permitAll()
                         .requestMatchers("/api/v1/auth/**").permitAll()
 
                         // ADMIN only
@@ -45,6 +50,8 @@ public class SecurityConfig {
 
                         // ADMIN + MANAGER + EMPLOYEE
                         .requestMatchers("/api/v1/orders/**")
+                        .hasAnyRole("ADMIN", "MANAGER", "EMPLOYEE")
+                        .requestMatchers("/api/v1/notifications/**")
                         .hasAnyRole("ADMIN", "MANAGER", "EMPLOYEE")
 
                         .anyRequest().authenticated()

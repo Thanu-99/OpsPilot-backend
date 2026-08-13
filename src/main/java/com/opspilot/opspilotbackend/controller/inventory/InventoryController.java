@@ -1,5 +1,5 @@
 package com.opspilot.opspilotbackend.controller.inventory;
-
+import jakarta.validation.Valid;
 import com.opspilot.opspilotbackend.dto.InventoryRequestDto;
 import com.opspilot.opspilotbackend.dto.InventoryResponseDto;
 import com.opspilot.opspilotbackend.service.InventoryService;
@@ -21,7 +21,7 @@ public class InventoryController {
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     public InventoryResponseDto createInventory(
-            @RequestBody InventoryRequestDto request) {
+            @Valid @RequestBody InventoryRequestDto request) {
 
         return inventoryService.createInventory(request);
     }
@@ -45,7 +45,7 @@ public class InventoryController {
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     public InventoryResponseDto updateInventory(
             @PathVariable Long id,
-            @RequestBody InventoryRequestDto request) {
+            @Valid @RequestBody InventoryRequestDto request) {
 
         return inventoryService.updateInventory(id, request);
     }

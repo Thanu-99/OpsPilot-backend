@@ -1,5 +1,5 @@
 package com.opspilot.opspilotbackend.service.impl;
-
+import com.opspilot.opspilotbackend.exception.ResourceNotFoundException;
 import com.opspilot.opspilotbackend.dto.OrderItemRequestDto;
 import com.opspilot.opspilotbackend.dto.OrderRequestDto;
 import com.opspilot.opspilotbackend.dto.OrderResponseDto;
@@ -57,7 +57,7 @@ public class OrderServiceImpl implements OrderService {
     public OrderResponseDto createOrder(OrderRequestDto request) {
 
         if (request.getItems() == null || request.getItems().isEmpty()) {
-            throw new RuntimeException("Order must contain at least one item");
+            throw new ResourceNotFoundException("Order must contain at least one item");
         }
 
         Order order = Order.builder()
@@ -73,25 +73,25 @@ public class OrderServiceImpl implements OrderService {
         for (OrderItemRequestDto itemRequest : request.getItems()) {
 
             Product product = productRepository.findById(itemRequest.getProductId())
-                    .orElseThrow(() -> new RuntimeException("Product not found"));
+                    .orElseThrow(() -> new ResourceNotFoundException("Product not found"));
 
             if (itemRequest.getQuantity() == null ||
                     itemRequest.getQuantity() <= 0) {
 
-                throw new RuntimeException("Quantity must be greater than zero");
+                throw new ResourceNotFoundException("Quantity must be greater than zero");
             }
 
             Inventory inventory = inventoryRepository
                     .findByProductId(product.getId())
                     .orElseThrow(() ->
-                            new RuntimeException(
+                            new ResourceNotFoundException(
                                     "Inventory not found for product: "
                                             + product.getName()
                             )
                     );
 
             if (inventory.getQuantity() < itemRequest.getQuantity()) {
-                throw new RuntimeException(
+                throw new ResourceNotFoundException(
                         "Insufficient stock for product: "
                                 + product.getName()
                 );
@@ -152,7 +152,7 @@ public class OrderServiceImpl implements OrderService {
     public OrderResponseDto getOrderById(Long id) {
 
         Order order = orderRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Order not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
 
         List<OrderItem> items =
                 orderItemRepository.findByOrderId(id);
@@ -166,10 +166,10 @@ public class OrderServiceImpl implements OrderService {
             OrderRequestDto request) {
 
         Order order = orderRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Order not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
 
         if (request.getItems() == null || request.getItems().isEmpty()) {
-            throw new RuntimeException("Order must contain at least one item");
+            throw new ResourceNotFoundException("Order must contain at least one item");
         }
 
         List<OrderItem> existingItems =
@@ -180,7 +180,7 @@ public class OrderServiceImpl implements OrderService {
             Inventory inventory = inventoryRepository
                     .findByProductId(item.getProduct().getId())
                     .orElseThrow(() ->
-                            new RuntimeException(
+                            new ResourceNotFoundException(
                                     "Inventory not found for product: "
                                             + item.getProduct().getName()
                             )
@@ -203,13 +203,13 @@ public class OrderServiceImpl implements OrderService {
             Product product = productRepository
                     .findById(itemRequest.getProductId())
                     .orElseThrow(() ->
-                            new RuntimeException("Product not found")
+                            new ResourceNotFoundException("Product not found")
                     );
 
             if (itemRequest.getQuantity() == null ||
                     itemRequest.getQuantity() <= 0) {
 
-                throw new RuntimeException(
+                throw new ResourceNotFoundException(
                         "Quantity must be greater than zero"
                 );
             }
@@ -217,14 +217,14 @@ public class OrderServiceImpl implements OrderService {
             Inventory inventory = inventoryRepository
                     .findByProductId(product.getId())
                     .orElseThrow(() ->
-                            new RuntimeException(
+                            new ResourceNotFoundException(
                                     "Inventory not found for product: "
                                             + product.getName()
                             )
                     );
 
             if (inventory.getQuantity() < itemRequest.getQuantity()) {
-                throw new RuntimeException(
+                throw new ResourceNotFoundException(
                         "Insufficient stock for product: "
                                 + product.getName()
                 );
@@ -276,18 +276,18 @@ public class OrderServiceImpl implements OrderService {
             OrderStatus status) {
 
         if (status == null) {
-            throw new RuntimeException("Order status is required");
+            throw new ResourceNotFoundException("Order status is required");
         }
 
         Order order = orderRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Order not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
 
         OrderStatus currentStatus = order.getStatus();
 
         if (currentStatus == OrderStatus.DELIVERED ||
                 currentStatus == OrderStatus.CANCELLED) {
 
-            throw new RuntimeException(
+            throw new ResourceNotFoundException(
                     "Cannot change status of a completed or cancelled order"
             );
         }
@@ -316,7 +316,7 @@ public class OrderServiceImpl implements OrderService {
     public void deleteOrder(Long id) {
 
         Order order = orderRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Order not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
 
         List<OrderItem> items =
                 orderItemRepository.findByOrderId(id);
@@ -326,7 +326,7 @@ public class OrderServiceImpl implements OrderService {
             Inventory inventory = inventoryRepository
                     .findByProductId(item.getProduct().getId())
                     .orElseThrow(() ->
-                            new RuntimeException(
+                            new ResourceNotFoundException(
                                     "Inventory not found for product: "
                                             + item.getProduct().getName()
                             )
@@ -369,7 +369,7 @@ public class OrderServiceImpl implements OrderService {
         User user = userRepository
                 .findByEmail(authentication.getName())
                 .orElseThrow(() ->
-                        new RuntimeException(
+                        new ResourceNotFoundException(
                                 "Authenticated user not found"
                         )
                 );

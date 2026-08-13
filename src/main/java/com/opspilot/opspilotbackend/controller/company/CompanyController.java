@@ -1,5 +1,5 @@
 package com.opspilot.opspilotbackend.controller.company;
-
+import jakarta.validation.Valid;
 import com.opspilot.opspilotbackend.dto.CompanyRequestDto;
 import com.opspilot.opspilotbackend.dto.CompanyResponseDto;
 import com.opspilot.opspilotbackend.service.CompanyService;
@@ -21,7 +21,7 @@ public class CompanyController {
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
     public CompanyResponseDto createCompany(
-            @RequestBody CompanyRequestDto request) {
+            @Valid @RequestBody CompanyRequestDto request) {
 
         return companyService.createCompany(request);
     }
@@ -45,7 +45,7 @@ public class CompanyController {
     @PreAuthorize("hasRole('ADMIN')")
     public CompanyResponseDto updateCompany(
             @PathVariable Long id,
-            @RequestBody CompanyRequestDto request) {
+            @Valid @RequestBody CompanyRequestDto request) {
 
         return companyService.updateCompany(id, request);
     }

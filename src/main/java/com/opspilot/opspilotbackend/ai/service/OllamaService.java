@@ -38,11 +38,19 @@ public class OllamaService {
 
     public String chat(String message) {
 
-        // 1. Ask the orchestrator to collect relevant verified data
-        String agentData = aiOrchestrator.route(message);
+        // 1. Ask agents to collect verified data.
+        // Agents are executed only once.
+        AIOrchestrator.RoutingResult routingResult =
+                aiOrchestrator.route(message);
 
-        // 2. If agents found relevant data, let Qwen explain it
-        if (agentData != null) {
+        // 2. Simple query → return verified agent response directly.
+        // Qwen is NOT called.
+        if (routingResult.isSimpleQuery()) {
+            return routingResult.getDirectResponse();
+        }
+
+        // 3. Multiple agents matched → Qwen synthesizes verified data.
+        if (routingResult.getAgentData() != null) {
 
             String prompt = """
                     You are OpsPilot AI, an intelligent operations assistant.
@@ -67,12 +75,15 @@ public class OllamaService {
                     - Give a concise, natural business-oriented answer.
 
                     Answer the user now.
-                    """.formatted(message, agentData);
+                    """.formatted(
+                    message,
+                    routingResult.getAgentData()
+            );
 
             return callOllama(prompt);
         }
 
-        // 3. Product ID based inventory lookup
+        // 4. Product ID based inventory lookup
         Long productId = extractProductId(message);
 
         if (productId != null) {
@@ -108,7 +119,7 @@ public class OllamaService {
             return callOllama(prompt);
         }
 
-        // 4. General questions → Qwen
+        // 5. General questions → Qwen
         String prompt = """
                 You are OpsPilot AI, an intelligent operations assistant.
 
