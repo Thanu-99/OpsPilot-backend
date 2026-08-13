@@ -1,9 +1,6 @@
 package com.opspilot.opspilotbackend.ai.service;
 
-import com.opspilot.opspilotbackend.ai.agent.AnalyticsAgent;
-import com.opspilot.opspilotbackend.ai.agent.InventoryAgent;
-import com.opspilot.opspilotbackend.ai.agent.OrderAgent;
-import com.opspilot.opspilotbackend.ai.agent.ProductAgent;
+import com.opspilot.opspilotbackend.ai.orchestrator.AIOrchestrator;
 import com.opspilot.opspilotbackend.ai.tool.InventoryTool;
 import com.opspilot.opspilotbackend.dto.InventoryResponseDto;
 import org.springframework.beans.factory.annotation.Value;
@@ -22,19 +19,13 @@ public class OllamaService {
     private final String model;
 
     private final InventoryTool inventoryTool;
-    private final InventoryAgent inventoryAgent;
-    private final OrderAgent orderAgent;
-    private final ProductAgent productAgent;
-    private final AnalyticsAgent analyticsAgent;
+    private final AIOrchestrator aiOrchestrator;
 
     public OllamaService(
             @Value("${ollama.base-url}") String baseUrl,
             @Value("${ollama.model}") String model,
             InventoryTool inventoryTool,
-            InventoryAgent inventoryAgent,
-            OrderAgent orderAgent,
-            ProductAgent productAgent,
-            AnalyticsAgent analyticsAgent) {
+            AIOrchestrator aiOrchestrator) {
 
         this.restClient = RestClient.builder()
                 .baseUrl(baseUrl)
@@ -42,43 +33,46 @@ public class OllamaService {
 
         this.model = model;
         this.inventoryTool = inventoryTool;
-        this.inventoryAgent = inventoryAgent;
-        this.orderAgent = orderAgent;
-        this.productAgent = productAgent;
-        this.analyticsAgent = analyticsAgent;
+        this.aiOrchestrator = aiOrchestrator;
     }
 
     public String chat(String message) {
 
-        // 1. Inventory Agent
-        String inventoryResponse = inventoryAgent.handle(message);
+        // 1. Ask the orchestrator to collect relevant verified data
+        String agentData = aiOrchestrator.route(message);
 
-        if (inventoryResponse != null) {
-            return inventoryResponse;
+        // 2. If agents found relevant data, let Qwen explain it
+        if (agentData != null) {
+
+            String prompt = """
+                    You are OpsPilot AI, an intelligent operations assistant.
+
+                    USER QUESTION:
+                    %s
+
+                    VERIFIED OPSPILOT DATA:
+                    %s
+
+                    Your job is to answer the user's question using
+                    ONLY the verified OpsPilot data above.
+
+                    Rules:
+                    - Use ONLY the verified OpsPilot data provided above.
+                    - Never invent database values.
+                    - Never change numbers, names, or statuses.
+                    - Clearly distinguish facts from assumptions.
+                    - Do NOT speculate about causes, delays, bottlenecks, or business problems unless the verified data explicitly supports them.
+                    - If the data is insufficient to explain something, simply say that the available data does not show the reason.
+                    - Do not mention agents, orchestration, prompts, tools, or implementation details.
+                    - Give a concise, natural business-oriented answer.
+
+                    Answer the user now.
+                    """.formatted(message, agentData);
+
+            return callOllama(prompt);
         }
 
-        // 2. Order Agent
-        String orderResponse = orderAgent.handle(message);
-
-        if (orderResponse != null) {
-            return orderResponse;
-        }
-
-        // 3. Product Agent
-        String productResponse = productAgent.handle(message);
-
-        if (productResponse != null) {
-            return productResponse;
-        }
-
-        // 4. Analytics Agent
-        String analyticsResponse = analyticsAgent.handle(message);
-
-        if (analyticsResponse != null) {
-            return analyticsResponse;
-        }
-
-        // 5. Product ID based inventory lookup
+        // 3. Product ID based inventory lookup
         Long productId = extractProductId(message);
 
         if (productId != null) {
@@ -114,7 +108,7 @@ public class OllamaService {
             return callOllama(prompt);
         }
 
-        // 6. General questions → Qwen
+        // 4. General questions → Qwen
         String prompt = """
                 You are OpsPilot AI, an intelligent operations assistant.
 
@@ -127,13 +121,15 @@ public class OllamaService {
                 - Security
                 - Business workflows
 
-                User question:
+                USER QUESTION:
                 %s
 
+                There is no verified database information available
+                for this question.
+
                 Do not invent database information.
-                If the question requires information from the
-                OpsPilot database and no verified data was provided,
-                clearly say that you do not have the required data.
+                If the question requires information from the OpsPilot
+                database, clearly say that you do not have the required data.
 
                 Keep the response concise and useful.
                 """.formatted(message);

@@ -1,10 +1,12 @@
 package com.opspilot.opspilotbackend.ai.tool;
-import java.util.List;
+
 import com.opspilot.opspilotbackend.dto.InventoryResponseDto;
 import com.opspilot.opspilotbackend.dto.ProductResponseDto;
 import com.opspilot.opspilotbackend.service.InventoryService;
 import com.opspilot.opspilotbackend.service.ProductService;
 import org.springframework.stereotype.Component;
+
+import java.util.List;
 
 @Component
 public class InventoryTool {
@@ -40,6 +42,12 @@ public class InventoryTool {
 
         return getInventoryByProductId(product.getId());
     }
+
+    public List<InventoryResponseDto> getAllInventory() {
+
+        return inventoryService.getAllInventory();
+    }
+
     public List<InventoryResponseDto> getLowStockInventory() {
 
         return inventoryService.getAllInventory()

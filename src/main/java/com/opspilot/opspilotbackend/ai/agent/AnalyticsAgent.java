@@ -24,18 +24,37 @@ public class AnalyticsAgent {
 
         List<Order> orders = orderRepository.findAll();
 
+        /*
+         * SALES / REVENUE
+         */
         if (lower.contains("revenue")
                 || lower.contains("sales revenue")
-                || lower.contains("total sales")) {
+                || lower.contains("total sales")
+                || lower.contains("sales performance")
+                || lower.equals("sales")
+                || lower.contains(" sales ")) {
 
-            BigDecimal revenue = orders.stream()
+            List<Order> deliveredOrders = orders.stream()
                     .filter(order -> order.getStatus() == OrderStatus.DELIVERED)
+                    .toList();
+
+            BigDecimal revenue = deliveredOrders.stream()
                     .map(Order::getTotalAmount)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-            return "Total completed sales revenue is ₹" + revenue + ".";
+            long completedCount = deliveredOrders.size();
+
+            return "Completed sales revenue is ₹"
+                    + revenue
+                    + " from "
+                    + completedCount
+                    + " completed "
+                    + (completedCount == 1 ? "order." : "orders.");
         }
 
+        /*
+         * AVERAGE ORDER VALUE
+         */
         if (lower.contains("average order value")
                 || lower.contains("average order")) {
 
@@ -60,8 +79,12 @@ public class AnalyticsAgent {
             return "The average order value is ₹" + average + ".";
         }
 
+        /*
+         * COMPLETED ORDERS
+         */
         if (lower.contains("completed orders")
-                || lower.contains("completed sales")) {
+                || lower.contains("completed sales")
+                || lower.contains("delivered orders")) {
 
             long count = orders.stream()
                     .filter(order -> order.getStatus() == OrderStatus.DELIVERED)
@@ -70,6 +93,20 @@ public class AnalyticsAgent {
             return count == 1
                     ? "There is currently 1 completed order."
                     : "There are currently " + count + " completed orders.";
+        }
+
+        /*
+         * TOTAL ORDER VALUE
+         */
+        if (lower.contains("total order value")
+                || lower.contains("value of all orders")
+                || lower.contains("total value of orders")) {
+
+            BigDecimal total = orders.stream()
+                    .map(Order::getTotalAmount)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            return "The total value of all orders is ₹" + total + ".";
         }
 
         return null;
