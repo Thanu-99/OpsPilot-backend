@@ -1,4 +1,5 @@
 package com.opspilot.opspilotbackend.service.impl;
+
 import com.opspilot.opspilotbackend.exception.ResourceNotFoundException;
 import com.opspilot.opspilotbackend.dto.OrderItemRequestDto;
 import com.opspilot.opspilotbackend.dto.OrderRequestDto;
@@ -9,6 +10,7 @@ import com.opspilot.opspilotbackend.entity.OrderItem;
 import com.opspilot.opspilotbackend.entity.OrderStatus;
 import com.opspilot.opspilotbackend.entity.Product;
 import com.opspilot.opspilotbackend.entity.User;
+import com.opspilot.opspilotbackend.kafka.KafkaEventProducer;
 import com.opspilot.opspilotbackend.mapper.OrderMapper;
 import com.opspilot.opspilotbackend.repository.InventoryRepository;
 import com.opspilot.opspilotbackend.repository.OrderItemRepository;
@@ -36,6 +38,7 @@ public class OrderServiceImpl implements OrderService {
     private final InventoryRepository inventoryRepository;
     private final AuditLogService auditLogService;
     private final UserRepository userRepository;
+    private final KafkaEventProducer kafkaEventProducer;
 
     public OrderServiceImpl(
             OrderRepository orderRepository,
@@ -43,7 +46,8 @@ public class OrderServiceImpl implements OrderService {
             ProductRepository productRepository,
             InventoryRepository inventoryRepository,
             AuditLogService auditLogService,
-            UserRepository userRepository) {
+            UserRepository userRepository,
+            KafkaEventProducer kafkaEventProducer) {
 
         this.orderRepository = orderRepository;
         this.orderItemRepository = orderItemRepository;
@@ -51,13 +55,16 @@ public class OrderServiceImpl implements OrderService {
         this.inventoryRepository = inventoryRepository;
         this.auditLogService = auditLogService;
         this.userRepository = userRepository;
+        this.kafkaEventProducer = kafkaEventProducer;
     }
 
     @Override
     public OrderResponseDto createOrder(OrderRequestDto request) {
 
         if (request.getItems() == null || request.getItems().isEmpty()) {
-            throw new ResourceNotFoundException("Order must contain at least one item");
+            throw new ResourceNotFoundException(
+                    "Order must contain at least one item"
+            );
         }
 
         Order order = Order.builder()
@@ -72,13 +79,20 @@ public class OrderServiceImpl implements OrderService {
 
         for (OrderItemRequestDto itemRequest : request.getItems()) {
 
-            Product product = productRepository.findById(itemRequest.getProductId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Product not found"));
+            Product product = productRepository
+                    .findById(itemRequest.getProductId())
+                    .orElseThrow(() ->
+                            new ResourceNotFoundException(
+                                    "Product not found"
+                            )
+                    );
 
             if (itemRequest.getQuantity() == null ||
                     itemRequest.getQuantity() <= 0) {
 
-                throw new ResourceNotFoundException("Quantity must be greater than zero");
+                throw new ResourceNotFoundException(
+                        "Quantity must be greater than zero"
+                );
             }
 
             Inventory inventory = inventoryRepository
@@ -115,7 +129,8 @@ public class OrderServiceImpl implements OrderService {
             totalAmount = totalAmount.add(subtotal);
 
             inventory.setQuantity(
-                    inventory.getQuantity() - itemRequest.getQuantity()
+                    inventory.getQuantity()
+                            - itemRequest.getQuantity()
             );
 
             inventoryRepository.save(inventory);
@@ -131,6 +146,10 @@ public class OrderServiceImpl implements OrderService {
                 "ORDER",
                 order.getId(),
                 "Created order with total amount: " + totalAmount
+        );
+
+        kafkaEventProducer.sendEvent(
+                "ORDER_CREATED:" + order.getId()
         );
 
         return OrderMapper.toResponse(order, orderItems);
@@ -152,7 +171,11 @@ public class OrderServiceImpl implements OrderService {
     public OrderResponseDto getOrderById(Long id) {
 
         Order order = orderRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Order not found"
+                        )
+                );
 
         List<OrderItem> items =
                 orderItemRepository.findByOrderId(id);
@@ -166,10 +189,16 @@ public class OrderServiceImpl implements OrderService {
             OrderRequestDto request) {
 
         Order order = orderRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Order not found"
+                        )
+                );
 
         if (request.getItems() == null || request.getItems().isEmpty()) {
-            throw new ResourceNotFoundException("Order must contain at least one item");
+            throw new ResourceNotFoundException(
+                    "Order must contain at least one item"
+            );
         }
 
         List<OrderItem> existingItems =
@@ -203,7 +232,9 @@ public class OrderServiceImpl implements OrderService {
             Product product = productRepository
                     .findById(itemRequest.getProductId())
                     .orElseThrow(() ->
-                            new ResourceNotFoundException("Product not found")
+                            new ResourceNotFoundException(
+                                    "Product not found"
+                            )
                     );
 
             if (itemRequest.getQuantity() == null ||
@@ -248,7 +279,8 @@ public class OrderServiceImpl implements OrderService {
             totalAmount = totalAmount.add(subtotal);
 
             inventory.setQuantity(
-                    inventory.getQuantity() - itemRequest.getQuantity()
+                    inventory.getQuantity()
+                            - itemRequest.getQuantity()
             );
 
             inventoryRepository.save(inventory);
@@ -264,7 +296,12 @@ public class OrderServiceImpl implements OrderService {
                 "UPDATE",
                 "ORDER",
                 order.getId(),
-                "Updated order. New total amount: " + totalAmount
+                "Updated order. New total amount: "
+                        + totalAmount
+        );
+
+        kafkaEventProducer.sendEvent(
+                "ORDER_UPDATED:" + order.getId()
         );
 
         return OrderMapper.toResponse(order, newItems);
@@ -276,11 +313,17 @@ public class OrderServiceImpl implements OrderService {
             OrderStatus status) {
 
         if (status == null) {
-            throw new ResourceNotFoundException("Order status is required");
+            throw new ResourceNotFoundException(
+                    "Order status is required"
+            );
         }
 
         Order order = orderRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Order not found"
+                        )
+                );
 
         OrderStatus currentStatus = order.getStatus();
 
@@ -306,6 +349,15 @@ public class OrderServiceImpl implements OrderService {
                         + status
         );
 
+        kafkaEventProducer.sendEvent(
+                "ORDER_STATUS_CHANGED:"
+                        + order.getId()
+                        + ":"
+                        + currentStatus
+                        + "->"
+                        + status
+        );
+
         List<OrderItem> items =
                 orderItemRepository.findByOrderId(id);
 
@@ -316,7 +368,11 @@ public class OrderServiceImpl implements OrderService {
     public void deleteOrder(Long id) {
 
         Order order = orderRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Order not found"
+                        )
+                );
 
         List<OrderItem> items =
                 orderItemRepository.findByOrderId(id);
@@ -347,6 +403,10 @@ public class OrderServiceImpl implements OrderService {
                 "ORDER",
                 id,
                 "Deleted order"
+        );
+
+        kafkaEventProducer.sendEvent(
+                "ORDER_DELETED:" + id
         );
     }
 
@@ -383,3 +443,4 @@ public class OrderServiceImpl implements OrderService {
         );
     }
 }
+

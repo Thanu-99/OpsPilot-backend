@@ -1,0 +1,13 @@
+target/*
+!target/opspilot-backend-0.0.1-SNAPSHOT.jar
+.idea/
+.git/
+.gitignore
+*.iml
+project_tree.txt
+HELP.md
+README.md
+*.log
+.env
+.DS_Store
+

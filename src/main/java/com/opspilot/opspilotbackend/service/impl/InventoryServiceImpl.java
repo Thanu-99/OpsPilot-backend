@@ -6,13 +6,13 @@ import com.opspilot.opspilotbackend.dto.InventoryResponseDto;
 import com.opspilot.opspilotbackend.entity.Inventory;
 import com.opspilot.opspilotbackend.entity.Product;
 import com.opspilot.opspilotbackend.entity.User;
+import com.opspilot.opspilotbackend.kafka.KafkaEventProducer;
 import com.opspilot.opspilotbackend.mapper.InventoryMapper;
 import com.opspilot.opspilotbackend.repository.InventoryRepository;
 import com.opspilot.opspilotbackend.repository.ProductRepository;
 import com.opspilot.opspilotbackend.repository.UserRepository;
 import com.opspilot.opspilotbackend.service.AuditLogService;
 import com.opspilot.opspilotbackend.service.InventoryService;
-import com.opspilot.opspilotbackend.service.NotificationService;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -28,20 +28,20 @@ public class InventoryServiceImpl implements InventoryService {
     private final ProductRepository productRepository;
     private final AuditLogService auditLogService;
     private final UserRepository userRepository;
-    private final NotificationService notificationService;
+    private final KafkaEventProducer kafkaEventProducer;
 
     public InventoryServiceImpl(
             InventoryRepository inventoryRepository,
             ProductRepository productRepository,
             AuditLogService auditLogService,
             UserRepository userRepository,
-            NotificationService notificationService) {
+            KafkaEventProducer kafkaEventProducer) {
 
         this.inventoryRepository = inventoryRepository;
         this.productRepository = productRepository;
         this.auditLogService = auditLogService;
         this.userRepository = userRepository;
-        this.notificationService = notificationService;
+        this.kafkaEventProducer = kafkaEventProducer;
     }
 
     @Override
@@ -80,6 +80,13 @@ public class InventoryServiceImpl implements InventoryService {
                         + product.getName()
         );
 
+        kafkaEventProducer.sendEvent(
+                "INVENTORY_CREATED:"
+                        + inventory.getId()
+                        + ":"
+                        + product.getName()
+        );
+
         return InventoryMapper.toResponse(inventory);
     }
 
@@ -97,7 +104,9 @@ public class InventoryServiceImpl implements InventoryService {
 
         Inventory inventory = inventoryRepository.findById(id)
                 .orElseThrow(() ->
-                        new ResourceNotFoundException("Inventory not found")
+                        new ResourceNotFoundException(
+                                "Inventory not found"
+                        )
                 );
 
         return InventoryMapper.toResponse(inventory);
@@ -110,7 +119,9 @@ public class InventoryServiceImpl implements InventoryService {
 
         Inventory inventory = inventoryRepository.findById(id)
                 .orElseThrow(() ->
-                        new ResourceNotFoundException("Inventory not found")
+                        new ResourceNotFoundException(
+                                "Inventory not found"
+                        )
                 );
 
         Product product = productRepository.findById(
@@ -126,16 +137,12 @@ public class InventoryServiceImpl implements InventoryService {
 
         inventory = inventoryRepository.save(inventory);
 
-        /*
-         * Create a notification when stock reaches
-         * or falls below the reorder level.
-         */
-        if (inventory.getQuantity() <= inventory.getReorderLevel()) {
+        Authentication authentication =
+                SecurityContextHolder
+                        .getContext()
+                        .getAuthentication();
 
-            Authentication authentication =
-                    SecurityContextHolder
-                            .getContext()
-                            .getAuthentication();
+        if (inventory.getQuantity() <= inventory.getReorderLevel()) {
 
             if (authentication != null &&
                     authentication.getName() != null) {
@@ -148,12 +155,14 @@ public class InventoryServiceImpl implements InventoryService {
                                 )
                         );
 
-                notificationService.createNotification(
-                        currentUser.getId(),
-                        "LOW_STOCK",
-                        "Low Stock Alert",
-                        "Product " + product.getName()
-                                + " has low stock. Current quantity: "
+                kafkaEventProducer.sendEvent(
+                        "LOW_STOCK:"
+                                + currentUser.getId()
+                                + ":"
+                                + inventory.getId()
+                                + ":"
+                                + product.getName()
+                                + ":"
                                 + inventory.getQuantity()
                 );
             }
@@ -167,6 +176,15 @@ public class InventoryServiceImpl implements InventoryService {
                         + product.getName()
         );
 
+        kafkaEventProducer.sendEvent(
+                "INVENTORY_UPDATED:"
+                        + inventory.getId()
+                        + ":"
+                        + product.getName()
+                        + ":"
+                        + inventory.getQuantity()
+        );
+
         return InventoryMapper.toResponse(inventory);
     }
 
@@ -175,10 +193,13 @@ public class InventoryServiceImpl implements InventoryService {
 
         Inventory inventory = inventoryRepository.findById(id)
                 .orElseThrow(() ->
-                        new ResourceNotFoundException("Inventory not found")
+                        new ResourceNotFoundException(
+                                "Inventory not found"
+                        )
                 );
 
-        String productName = inventory.getProduct().getName();
+        String productName =
+                inventory.getProduct().getName();
 
         inventoryRepository.delete(inventory);
 
@@ -186,7 +207,15 @@ public class InventoryServiceImpl implements InventoryService {
                 "DELETE",
                 "INVENTORY",
                 id,
-                "Deleted inventory for product: " + productName
+                "Deleted inventory for product: "
+                        + productName
+        );
+
+        kafkaEventProducer.sendEvent(
+                "INVENTORY_DELETED:"
+                        + id
+                        + ":"
+                        + productName
         );
     }
 
@@ -223,3 +252,4 @@ public class InventoryServiceImpl implements InventoryService {
         );
     }
 }
+
