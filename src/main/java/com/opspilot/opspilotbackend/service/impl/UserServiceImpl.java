@@ -1,8 +1,11 @@
 package com.opspilot.opspilotbackend.service.impl;
-import com.opspilot.opspilotbackend.exception.ResourceNotFoundException;
+
+import com.opspilot.opspilotbackend.dto.ReportingLineRequestDto;
 import com.opspilot.opspilotbackend.dto.UserRequestDto;
 import com.opspilot.opspilotbackend.dto.UserResponseDto;
 import com.opspilot.opspilotbackend.entity.User;
+import com.opspilot.opspilotbackend.entity.UserRole;
+import com.opspilot.opspilotbackend.exception.ResourceNotFoundException;
 import com.opspilot.opspilotbackend.mapper.UserMapper;
 import com.opspilot.opspilotbackend.repository.UserRepository;
 import com.opspilot.opspilotbackend.service.AuditLogService;
@@ -82,6 +85,8 @@ public class UserServiceImpl implements UserService {
         user.setPassword(request.getPassword());
         user.setRole(request.getRole());
         user.setCompanyId(request.getCompanyId());
+        user.setDepartmentId(request.getDepartmentId());
+        user.setManagerId(request.getManagerId());
         user.setActive(request.isActive());
 
         user = userRepository.save(user);
@@ -94,6 +99,49 @@ public class UserServiceImpl implements UserService {
         );
 
         return UserMapper.toResponseDto(user);
+    }
+
+    @Override
+    public UserResponseDto updateReportingLine(
+            Long id,
+            ReportingLineRequestDto request) {
+
+        User employee = userRepository.findById(id)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("User not found")
+                );
+
+        User manager = userRepository.findById(request.getManagerId())
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Manager not found")
+                );
+
+        if (manager.getRole() != UserRole.MANAGER) {
+            throw new IllegalArgumentException(
+                    "The selected user is not a manager"
+            );
+        }
+
+        if (!employee.getCompanyId().equals(manager.getCompanyId())) {
+            throw new IllegalArgumentException(
+                    "Employee and manager must belong to the same company"
+            );
+        }
+
+        employee.setDepartmentId(request.getDepartmentId());
+        employee.setManagerId(manager.getId());
+
+        employee = userRepository.save(employee);
+
+        audit(
+                "ASSIGN",
+                "USER",
+                employee.getId(),
+                "Assigned " + employee.getEmail()
+                        + " to manager: " + manager.getEmail()
+        );
+
+        return UserMapper.toResponseDto(employee);
     }
 
     @Override

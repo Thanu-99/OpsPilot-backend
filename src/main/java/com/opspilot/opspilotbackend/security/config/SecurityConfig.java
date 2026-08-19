@@ -53,6 +53,8 @@ public class SecurityConfig {
                         .hasAnyRole("ADMIN", "MANAGER", "EMPLOYEE")
                         .requestMatchers("/api/v1/notifications/**")
                         .hasAnyRole("ADMIN", "MANAGER", "EMPLOYEE")
+                        .requestMatchers("/api/v1/ai/**")
+                        .hasAnyRole("ADMIN", "MANAGER", "EMPLOYEE")
 
                         .anyRequest().authenticated()
                 )

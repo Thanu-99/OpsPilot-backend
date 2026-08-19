@@ -1,8 +1,10 @@
 package com.opspilot.opspilotbackend.controller.user;
-import jakarta.validation.Valid;
+
+import com.opspilot.opspilotbackend.dto.ReportingLineRequestDto;
 import com.opspilot.opspilotbackend.dto.UserRequestDto;
 import com.opspilot.opspilotbackend.dto.UserResponseDto;
 import com.opspilot.opspilotbackend.service.UserService;
+import jakarta.validation.Valid;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -35,8 +37,7 @@ public class UserController {
 
     @GetMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public UserResponseDto getUserById(
-            @PathVariable Long id) {
+    public UserResponseDto getUserById(@PathVariable Long id) {
 
         return userService.getUserById(id);
     }
@@ -50,10 +51,18 @@ public class UserController {
         return userService.updateUser(id, request);
     }
 
+    @PatchMapping("/{id}/reporting-line")
+    @PreAuthorize("hasRole('ADMIN')")
+    public UserResponseDto updateReportingLine(
+            @PathVariable Long id,
+            @Valid @RequestBody ReportingLineRequestDto request) {
+
+        return userService.updateReportingLine(id, request);
+    }
+
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public String deleteUser(
-            @PathVariable Long id) {
+    public String deleteUser(@PathVariable Long id) {
 
         userService.deleteUser(id);
 

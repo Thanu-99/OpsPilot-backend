@@ -33,5 +33,11 @@ public class UserRequestDto {
     @Positive(message = "Company ID must be greater than zero")
     private Long companyId;
 
+    @Positive(message = "Department ID must be greater than zero")
+    private Long departmentId;
+
+    @Positive(message = "Manager ID must be greater than zero")
+    private Long managerId;
+
     private boolean active;
 }

@@ -1,5 +1,6 @@
 package com.opspilot.opspilotbackend.service;
 
+import com.opspilot.opspilotbackend.dto.ReportingLineRequestDto;
 import com.opspilot.opspilotbackend.dto.UserRequestDto;
 import com.opspilot.opspilotbackend.dto.UserResponseDto;
 
@@ -15,6 +16,10 @@ public interface UserService {
 
     UserResponseDto updateUser(Long id, UserRequestDto request);
 
-    void deleteUser(Long id);
+    UserResponseDto updateReportingLine(
+            Long id,
+            ReportingLineRequestDto request
+    );
 
+    void deleteUser(Long id);
 }

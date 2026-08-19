@@ -164,11 +164,15 @@ public class OllamaService {
     }
 
     private String callOllama(String prompt) {
-
         Map<String, Object> request = Map.of(
                 "model", model,
                 "prompt", prompt,
-                "stream", false
+                "stream", false,
+                "think", false,
+                "keep_alive", "10m",
+                "options", Map.of(
+                        "num_predict", 220
+                )
         );
 
         Map<?, ?> response = restClient.post()

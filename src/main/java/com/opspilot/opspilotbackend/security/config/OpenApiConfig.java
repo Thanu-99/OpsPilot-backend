@@ -1,4 +1,4 @@
-package com.opspilot.opspilotbackend.config;
+package com.opspilot.opspilotbackend.security.config;
 
 import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
@@ -13,14 +13,11 @@ public class OpenApiConfig {
 
     @Bean
     public OpenAPI opsPilotOpenAPI() {
-
         return new OpenAPI()
                 .info(new Info()
                         .title("OpsPilot API")
                         .version("1.0")
-                        .description(
-                                "API documentation for OpsPilot AI"
-                        ))
+                        .description("API documentation for OpsPilot AI"))
                 .components(
                         new Components()
                                 .addSecuritySchemes(

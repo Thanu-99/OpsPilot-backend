@@ -15,6 +15,8 @@ public class UserMapper {
                 .password(dto.getPassword())
                 .role(dto.getRole())
                 .companyId(dto.getCompanyId())
+                .departmentId(dto.getDepartmentId())
+                .managerId(dto.getManagerId())
                 .active(dto.isActive())
                 .build();
     }
@@ -28,6 +30,8 @@ public class UserMapper {
                 .email(user.getEmail())
                 .role(user.getRole())
                 .companyId(user.getCompanyId())
+                .departmentId(user.getDepartmentId())
+                .managerId(user.getManagerId())
                 .active(user.isActive())
                 .createdAt(user.getCreatedAt())
                 .updatedAt(user.getUpdatedAt())

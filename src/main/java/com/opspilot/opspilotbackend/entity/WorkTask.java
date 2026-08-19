@@ -3,51 +3,48 @@ package com.opspilot.opspilotbackend.entity;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "users")
+@Table(name = "work_tasks")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class User {
+public class WorkTask {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @Column(nullable = false)
-    private String firstName;
+    private String title;
 
-    @Column(nullable = false)
-    private String lastName;
-
-    @Column(nullable = false, unique = true)
-    private String email;
-
-    @Column(nullable = false)
-    private String password;
+    @Column(length = 2000)
+    private String description;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private UserRole role;
+    private TaskStatus status = TaskStatus.TODO;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private TaskPriority priority = TaskPriority.MEDIUM;
 
     @Column(nullable = false)
     private Long companyId;
 
-    /*
-     * Null for the company ADMIN.
-     * A manager belongs to a department.
-     * An employee belongs to a department and reports to a manager.
-     */
     private Long departmentId;
 
-    private Long managerId;
+    @Column(nullable = false)
+    private Long assignedToUserId;
 
     @Column(nullable = false)
-    private boolean active = true;
+    private Long createdByUserId;
+
+    private LocalDate dueDate;
 
     @Column(updatable = false)
     private LocalDateTime createdAt;

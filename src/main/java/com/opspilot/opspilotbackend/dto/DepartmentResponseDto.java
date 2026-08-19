@@ -1,6 +1,5 @@
 package com.opspilot.opspilotbackend.dto;
 
-import com.opspilot.opspilotbackend.entity.UserRole;
 import lombok.*;
 
 import java.time.LocalDateTime;
@@ -9,21 +8,15 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class UserResponseDto {
+public class DepartmentResponseDto {
 
     private Long id;
 
-    private String firstName;
+    private String name;
 
-    private String lastName;
-
-    private String email;
-
-    private UserRole role;
+    private String description;
 
     private Long companyId;
-
-    private Long departmentId;
 
     private Long managerId;
 
