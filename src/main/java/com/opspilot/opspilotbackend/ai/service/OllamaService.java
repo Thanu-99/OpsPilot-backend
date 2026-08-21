@@ -56,6 +56,15 @@ public class OllamaService {
         this.model = model;
         this.cloudHost = baseUrl.contains("ollama.com");
         this.aiContextService = aiContextService;
+
+        log.info(
+                "Ollama configuration: baseUrl={}, model={}, cloudHost={}, apiKeyPresent={}, apiKeyLength={}",
+                baseUrl,
+                model,
+                this.cloudHost,
+                apiKey != null && !apiKey.isBlank(),
+                apiKey == null ? 0 : apiKey.trim().length()
+        );
     }
 
     public String chat(
