@@ -3,15 +3,22 @@ package com.opspilot.opspilotbackend.ai.service;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientResponseException;
 
+import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
 @Service
 public class OllamaService {
+
+    private static final Logger log =
+            LoggerFactory.getLogger(OllamaService.class);
 
     private static final Set<String> SIMPLE_GREETINGS = Set.of(
             "hi",
@@ -25,6 +32,7 @@ public class OllamaService {
 
     private final RestClient restClient;
     private final String model;
+    private final boolean cloudHost;
     private final AIContextService aiContextService;
 
     public OllamaService(
@@ -46,6 +54,7 @@ public class OllamaService {
         this.restClient = clientBuilder.build();
 
         this.model = model;
+        this.cloudHost = baseUrl.contains("ollama.com");
         this.aiContextService = aiContextService;
     }
 
@@ -114,27 +123,45 @@ public class OllamaService {
     }
 
     private String callOllama(String prompt) {
-        Map<String, Object> request = Map.of(
-                "model", model,
-                "prompt", prompt,
-                "stream", false,
-                "think", false,
-                "keep_alive", "15m",
-                "options", Map.of(
-                        "temperature", 0.15,
-                        "num_predict", 120,
-                        "num_ctx", 3072,
-                        "top_p", 0.85,
-                        "repeat_penalty", 1.08
-                )
-        );
+        Map<String, Object> request = new LinkedHashMap<>();
 
-        Map<?, ?> response = restClient.post()
-                .uri("/api/generate")
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(request)
-                .retrieve()
-                .body(Map.class);
+        request.put("model", model);
+        request.put("prompt", prompt);
+        request.put("stream", false);
+        request.put("think", false);
+
+        if (!cloudHost) {
+            request.put("keep_alive", "15m");
+            request.put(
+                    "options",
+                    Map.of(
+                            "temperature", 0.15,
+                            "num_predict", 120,
+                            "num_ctx", 3072,
+                            "top_p", 0.85,
+                            "repeat_penalty", 1.08
+                    )
+            );
+        }
+
+        Map<?, ?> response;
+
+        try {
+            response = restClient.post()
+                    .uri("/api/generate")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(request)
+                    .retrieve()
+                    .body(Map.class);
+        } catch (RestClientResponseException exception) {
+            log.error(
+                    "Ollama request failed with status {}: {}",
+                    exception.getStatusCode(),
+                    exception.getResponseBodyAsString()
+            );
+
+            throw exception;
+        }
 
         if (response == null ||
                 response.get("response") == null) {
