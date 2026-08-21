@@ -1,6 +1,7 @@
 package com.opspilot.opspilotbackend.service.impl;
 
 import com.opspilot.opspilotbackend.dto.ManagerTaskRequestDto;
+import com.opspilot.opspilotbackend.dto.TaskStatusUpdateRequestDto;
 import com.opspilot.opspilotbackend.dto.WorkTaskRequestDto;
 import com.opspilot.opspilotbackend.dto.WorkTaskResponseDto;
 import com.opspilot.opspilotbackend.entity.Department;
@@ -108,6 +109,43 @@ public class WorkTaskServiceImpl implements WorkTaskService {
                 .createdByUserId(manager.getId())
                 .dueDate(request.getDueDate())
                 .build();
+
+        task = workTaskRepository.save(task);
+
+        return WorkTaskMapper.toResponseDto(task);
+    }
+
+    @Override
+    public WorkTaskResponseDto updateTaskStatusForEmployee(
+            String employeeEmail,
+            Long taskId,
+            TaskStatusUpdateRequestDto request) {
+
+        User employee = userRepository.findByEmail(employeeEmail)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Authenticated user not found"
+                        )
+                );
+
+        if (employee.getRole() != UserRole.EMPLOYEE) {
+            throw new AccessDeniedException(
+                    "Only employees can update personal task progress"
+            );
+        }
+
+        WorkTask task = workTaskRepository.findById(taskId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Task not found")
+                );
+
+        if (!employee.getId().equals(task.getAssignedToUserId())) {
+            throw new AccessDeniedException(
+                    "You can only update tasks assigned to you"
+            );
+        }
+
+        task.setStatus(request.getStatus());
 
         task = workTaskRepository.save(task);
 

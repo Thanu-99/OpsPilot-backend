@@ -7,7 +7,15 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "products")
+@Table(
+        name = "products",
+        indexes = {
+                @Index(
+                        name = "idx_products_company_id",
+                        columnList = "company_id"
+                )
+        }
+)
 @Getter
 @Setter
 @NoArgsConstructor
@@ -18,6 +26,9 @@ public class Product {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Column(name = "company_id", nullable = false)
+    private Long companyId;
 
     @Column(nullable = false)
     private String name;

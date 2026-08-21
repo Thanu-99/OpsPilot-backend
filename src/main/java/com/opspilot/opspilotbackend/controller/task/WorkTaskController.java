@@ -1,6 +1,7 @@
 package com.opspilot.opspilotbackend.controller.task;
 
 import com.opspilot.opspilotbackend.dto.ManagerTaskRequestDto;
+import com.opspilot.opspilotbackend.dto.TaskStatusUpdateRequestDto;
 import com.opspilot.opspilotbackend.dto.WorkTaskRequestDto;
 import com.opspilot.opspilotbackend.dto.WorkTaskResponseDto;
 import com.opspilot.opspilotbackend.service.NotificationService;
@@ -62,6 +63,35 @@ public class WorkTaskController {
         );
 
         return createdTask;
+    }
+
+    @PatchMapping("/{id}/my-status")
+    @PreAuthorize("hasRole('EMPLOYEE')")
+    public WorkTaskResponseDto updateMyTaskStatus(
+            @PathVariable Long id,
+            Authentication authentication,
+            @Valid @RequestBody TaskStatusUpdateRequestDto request) {
+
+        WorkTaskResponseDto updatedTask =
+                workTaskService.updateTaskStatusForEmployee(
+                        authentication.getName(),
+                        id,
+                        request
+                );
+
+        notificationService.createNotification(
+                updatedTask.getCreatedByUserId(),
+                "TASK_PROGRESS",
+                "Task progress updated",
+                "Task \"" + updatedTask.getTitle()
+                        + "\" is now "
+                        + updatedTask.getStatus()
+                        .name()
+                        .toLowerCase()
+                        .replace("_", " ")
+        );
+
+        return updatedTask;
     }
 
     @GetMapping

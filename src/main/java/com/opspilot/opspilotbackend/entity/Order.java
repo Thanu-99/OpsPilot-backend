@@ -7,7 +7,15 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "orders")
+@Table(
+        name = "orders",
+        indexes = {
+                @Index(
+                        name = "idx_orders_company_id",
+                        columnList = "company_id"
+                )
+        }
+)
 @Getter
 @Setter
 @NoArgsConstructor
@@ -19,7 +27,10 @@ public class Order {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
+    @Column(name = "company_id", nullable = false)
+    private Long companyId;
+
+    @Column(nullable = false, precision = 14, scale = 2)
     private BigDecimal totalAmount;
 
     @Enumerated(EnumType.STRING)

@@ -1,11 +1,11 @@
 package com.opspilot.opspilotbackend.service.impl;
 
-import com.opspilot.opspilotbackend.exception.ResourceNotFoundException;
 import com.opspilot.opspilotbackend.dto.InventoryRequestDto;
 import com.opspilot.opspilotbackend.dto.InventoryResponseDto;
 import com.opspilot.opspilotbackend.entity.Inventory;
 import com.opspilot.opspilotbackend.entity.Product;
 import com.opspilot.opspilotbackend.entity.User;
+import com.opspilot.opspilotbackend.exception.ResourceNotFoundException;
 import com.opspilot.opspilotbackend.kafka.KafkaEventProducer;
 import com.opspilot.opspilotbackend.mapper.InventoryMapper;
 import com.opspilot.opspilotbackend.repository.InventoryRepository;
@@ -19,6 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Objects;
 
 @Service
 @Transactional
@@ -35,8 +36,8 @@ public class InventoryServiceImpl implements InventoryService {
             ProductRepository productRepository,
             AuditLogService auditLogService,
             UserRepository userRepository,
-            KafkaEventProducer kafkaEventProducer) {
-
+            KafkaEventProducer kafkaEventProducer
+    ) {
         this.inventoryRepository = inventoryRepository;
         this.productRepository = productRepository;
         this.auditLogService = auditLogService;
@@ -46,18 +47,23 @@ public class InventoryServiceImpl implements InventoryService {
 
     @Override
     public InventoryResponseDto createInventory(
-            InventoryRequestDto request) {
+            InventoryRequestDto request
+    ) {
+        User currentUser = getCurrentUser();
 
-        Product product = productRepository.findById(
-                        request.getProductId()
-                )
-                .orElseThrow(() ->
-                        new ResourceNotFoundException("Product not found")
-                );
+        Product product = findCompanyProduct(
+                request.getProductId(),
+                currentUser.getCompanyId()
+        );
 
-        if (inventoryRepository.existsByProductId(
-                request.getProductId())) {
+        boolean inventoryAlreadyExists =
+                inventoryRepository
+                        .existsByProduct_IdAndProduct_CompanyId(
+                                product.getId(),
+                                currentUser.getCompanyId()
+                        );
 
+        if (inventoryAlreadyExists) {
             throw new ResourceNotFoundException(
                     "Inventory already exists for this product"
             );
@@ -70,44 +76,55 @@ public class InventoryServiceImpl implements InventoryService {
                 .active(true)
                 .build();
 
-        inventory = inventoryRepository.save(inventory);
+        Inventory savedInventory =
+                inventoryRepository.save(inventory);
 
-        audit(
+        synchronizeProductQuantity(
+                product,
+                request.getQuantity()
+        );
+
+        createAuditLog(
+                currentUser,
                 "CREATE",
-                "INVENTORY",
-                inventory.getId(),
+                savedInventory.getId(),
                 "Created inventory for product: "
                         + product.getName()
         );
 
         kafkaEventProducer.sendEvent(
                 "INVENTORY_CREATED:"
-                        + inventory.getId()
+                        + savedInventory.getId()
                         + ":"
                         + product.getName()
         );
 
-        return InventoryMapper.toResponse(inventory);
+        return InventoryMapper.toResponse(savedInventory);
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<InventoryResponseDto> getAllInventory() {
+        User currentUser = getCurrentUser();
 
-        return inventoryRepository.findAll()
+        return inventoryRepository
+                .findByProduct_CompanyIdOrderByProduct_NameAsc(
+                        currentUser.getCompanyId()
+                )
                 .stream()
                 .map(InventoryMapper::toResponse)
                 .toList();
     }
 
     @Override
+    @Transactional(readOnly = true)
     public InventoryResponseDto getInventoryById(Long id) {
+        User currentUser = getCurrentUser();
 
-        Inventory inventory = inventoryRepository.findById(id)
-                .orElseThrow(() ->
-                        new ResourceNotFoundException(
-                                "Inventory not found"
-                        )
-                );
+        Inventory inventory = findCompanyInventory(
+                id,
+                currentUser.getCompanyId()
+        );
 
         return InventoryMapper.toResponse(inventory);
     }
@@ -115,97 +132,107 @@ public class InventoryServiceImpl implements InventoryService {
     @Override
     public InventoryResponseDto updateInventory(
             Long id,
-            InventoryRequestDto request) {
+            InventoryRequestDto request
+    ) {
+        User currentUser = getCurrentUser();
 
-        Inventory inventory = inventoryRepository.findById(id)
-                .orElseThrow(() ->
-                        new ResourceNotFoundException(
-                                "Inventory not found"
+        Inventory inventory = findCompanyInventory(
+                id,
+                currentUser.getCompanyId()
+        );
+
+        Long currentInventoryId = inventory.getId();
+
+        Product product = findCompanyProduct(
+                request.getProductId(),
+                currentUser.getCompanyId()
+        );
+
+        boolean productHasDifferentInventory =
+                inventoryRepository
+                        .findByProduct_IdAndProduct_CompanyId(
+                                product.getId(),
+                                currentUser.getCompanyId()
                         )
-                );
+                        .filter(existingInventory ->
+                                !Objects.equals(
+                                        existingInventory.getId(),
+                                        currentInventoryId
+                                )
+                        )
+                        .isPresent();
 
-        Product product = productRepository.findById(
-                        request.getProductId()
-                )
-                .orElseThrow(() ->
-                        new ResourceNotFoundException("Product not found")
-                );
+        if (productHasDifferentInventory) {
+            throw new ResourceNotFoundException(
+                    "Inventory already exists for this product"
+            );
+        }
 
         inventory.setProduct(product);
         inventory.setQuantity(request.getQuantity());
         inventory.setReorderLevel(request.getReorderLevel());
 
-        inventory = inventoryRepository.save(inventory);
+        Inventory savedInventory =
+                inventoryRepository.save(inventory);
 
-        Authentication authentication =
-                SecurityContextHolder
-                        .getContext()
-                        .getAuthentication();
+        synchronizeProductQuantity(
+                product,
+                request.getQuantity()
+        );
 
-        if (inventory.getQuantity() <= inventory.getReorderLevel()) {
-
-            if (authentication != null &&
-                    authentication.getName() != null) {
-
-                User currentUser = userRepository
-                        .findByEmail(authentication.getName())
-                        .orElseThrow(() ->
-                                new ResourceNotFoundException(
-                                        "Authenticated user not found"
-                                )
-                        );
-
-                kafkaEventProducer.sendEvent(
-                        "LOW_STOCK:"
-                                + currentUser.getId()
-                                + ":"
-                                + inventory.getId()
-                                + ":"
-                                + product.getName()
-                                + ":"
-                                + inventory.getQuantity()
-                );
-            }
+        if (savedInventory.getQuantity() <=
+                savedInventory.getReorderLevel()) {
+            kafkaEventProducer.sendEvent(
+                    "LOW_STOCK:"
+                            + currentUser.getId()
+                            + ":"
+                            + savedInventory.getId()
+                            + ":"
+                            + product.getName()
+                            + ":"
+                            + savedInventory.getQuantity()
+            );
         }
 
-        audit(
+        createAuditLog(
+                currentUser,
                 "UPDATE",
-                "INVENTORY",
-                inventory.getId(),
+                savedInventory.getId(),
                 "Updated inventory for product: "
                         + product.getName()
         );
 
         kafkaEventProducer.sendEvent(
                 "INVENTORY_UPDATED:"
-                        + inventory.getId()
+                        + savedInventory.getId()
                         + ":"
                         + product.getName()
                         + ":"
-                        + inventory.getQuantity()
+                        + savedInventory.getQuantity()
         );
 
-        return InventoryMapper.toResponse(inventory);
+        return InventoryMapper.toResponse(savedInventory);
     }
 
     @Override
     public void deleteInventory(Long id) {
+        User currentUser = getCurrentUser();
 
-        Inventory inventory = inventoryRepository.findById(id)
-                .orElseThrow(() ->
-                        new ResourceNotFoundException(
-                                "Inventory not found"
-                        )
-                );
+        Inventory inventory = findCompanyInventory(
+                id,
+                currentUser.getCompanyId()
+        );
 
-        String productName =
-                inventory.getProduct().getName();
+        Product product = inventory.getProduct();
+        String productName = product.getName();
 
         inventoryRepository.delete(inventory);
 
-        audit(
+        synchronizeProductQuantity(product, 0);
+
+        createAuditLog(
+                currentUser,
                 "DELETE",
-                "INVENTORY",
                 id,
                 "Deleted inventory for product: "
                         + productName
@@ -219,37 +246,81 @@ public class InventoryServiceImpl implements InventoryService {
         );
     }
 
-    private void audit(
-            String action,
-            String entityType,
-            Long entityId,
-            String details) {
+    private Inventory findCompanyInventory(
+            Long inventoryId,
+            Long companyId
+    ) {
+        return inventoryRepository
+                .findByIdAndProduct_CompanyId(
+                        inventoryId,
+                        companyId
+                )
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Inventory not found"
+                        )
+                );
+    }
 
+    private Product findCompanyProduct(
+            Long productId,
+            Long companyId
+    ) {
+        return productRepository
+                .findByIdAndCompanyId(
+                        productId,
+                        companyId
+                )
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Product not found"
+                        )
+                );
+    }
+
+    private void synchronizeProductQuantity(
+            Product product,
+            Integer inventoryQuantity
+    ) {
+        product.setQuantity(inventoryQuantity);
+        productRepository.save(product);
+    }
+
+    private User getCurrentUser() {
         Authentication authentication =
                 SecurityContextHolder
                         .getContext()
                         .getAuthentication();
 
         if (authentication == null ||
+                !authentication.isAuthenticated() ||
                 authentication.getName() == null) {
-            return;
+            throw new ResourceNotFoundException(
+                    "Authenticated user not found"
+            );
         }
 
-        User currentUser = userRepository
+        return userRepository
                 .findByEmail(authentication.getName())
                 .orElseThrow(() ->
                         new ResourceNotFoundException(
                                 "Authenticated user not found"
                         )
                 );
+    }
 
+    private void createAuditLog(
+            User currentUser,
+            String action,
+            Long entityId,
+            String details
+    ) {
         auditLogService.createAuditLog(
                 currentUser.getId(),
                 action,
-                entityType,
+                "INVENTORY",
                 entityId,
                 details
         );
     }
 }
-

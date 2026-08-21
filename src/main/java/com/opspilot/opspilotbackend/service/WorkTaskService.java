@@ -1,6 +1,7 @@
 package com.opspilot.opspilotbackend.service;
 
 import com.opspilot.opspilotbackend.dto.ManagerTaskRequestDto;
+import com.opspilot.opspilotbackend.dto.TaskStatusUpdateRequestDto;
 import com.opspilot.opspilotbackend.dto.WorkTaskRequestDto;
 import com.opspilot.opspilotbackend.dto.WorkTaskResponseDto;
 
@@ -13,6 +14,12 @@ public interface WorkTaskService {
     WorkTaskResponseDto createTaskForManager(
             String managerEmail,
             ManagerTaskRequestDto request
+    );
+
+    WorkTaskResponseDto updateTaskStatusForEmployee(
+            String employeeEmail,
+            Long taskId,
+            TaskStatusUpdateRequestDto request
     );
 
     List<WorkTaskResponseDto> getAllTasks();

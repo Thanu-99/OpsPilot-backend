@@ -1,166 +1,116 @@
 package com.opspilot.opspilotbackend.ai.service;
 
-import com.opspilot.opspilotbackend.ai.orchestrator.AIOrchestrator;
-import com.opspilot.opspilotbackend.ai.tool.InventoryTool;
-import com.opspilot.opspilotbackend.dto.InventoryResponseDto;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
+import java.util.Locale;
 import java.util.Map;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.util.Set;
 
 @Service
 public class OllamaService {
 
+    private static final Set<String> SIMPLE_GREETINGS = Set.of(
+            "hi",
+            "hello",
+            "hey",
+            "hey there",
+            "good morning",
+            "good afternoon",
+            "good evening"
+    );
+
     private final RestClient restClient;
     private final String model;
-
-    private final InventoryTool inventoryTool;
-    private final AIOrchestrator aiOrchestrator;
+    private final AIContextService aiContextService;
 
     public OllamaService(
             @Value("${ollama.base-url}") String baseUrl,
             @Value("${ollama.model}") String model,
-            InventoryTool inventoryTool,
-            AIOrchestrator aiOrchestrator) {
+            @Value("${ollama.api-key:}") String apiKey,
+            AIContextService aiContextService
+    ) {
+        RestClient.Builder clientBuilder = RestClient.builder()
+                .baseUrl(baseUrl);
 
-        this.restClient = RestClient.builder()
-                .baseUrl(baseUrl)
-                .build();
+        if (apiKey != null && !apiKey.isBlank()) {
+            clientBuilder.defaultHeader(
+                    HttpHeaders.AUTHORIZATION,
+                    "Bearer " + apiKey.trim()
+            );
+        }
+
+        this.restClient = clientBuilder.build();
 
         this.model = model;
-        this.inventoryTool = inventoryTool;
-        this.aiOrchestrator = aiOrchestrator;
+        this.aiContextService = aiContextService;
     }
 
-    public String chat(String message) {
+    public String chat(
+            String message,
+            String authenticatedEmail
+    ) {
+        String normalizedMessage = message
+                .trim()
+                .toLowerCase(Locale.ROOT)
+                .replaceAll("[.!?]+$", "");
 
-        // 1. Ask agents to collect verified data.
-        // Agents are executed only once.
-        AIOrchestrator.RoutingResult routingResult =
-                aiOrchestrator.route(message);
-
-        // 2. Simple query → return verified agent response directly.
-        // Qwen is NOT called.
-        if (routingResult.isSimpleQuery()) {
-            return routingResult.getDirectResponse();
+        if (SIMPLE_GREETINGS.contains(normalizedMessage)) {
+            return """
+                    Hi! I’m ready to help with your OpsPilot workspace. \
+                    You can ask about operations, people, tasks, products, \
+                    inventory, orders, revenue, deadlines, or current risks.
+                    """.trim();
         }
 
-        // 3. Multiple agents matched → Qwen synthesizes verified data.
-        if (routingResult.getAgentData() != null) {
-
-            String prompt = """
-                    You are OpsPilot AI, an intelligent operations assistant.
-
-                    USER QUESTION:
-                    %s
-
-                    VERIFIED OPSPILOT DATA:
-                    %s
-
-                    Your job is to answer the user's question using
-                    ONLY the verified OpsPilot data above.
-
-                    Rules:
-                    - Use ONLY the verified OpsPilot data provided above.
-                    - Never invent database values.
-                    - Never change numbers, names, or statuses.
-                    - Clearly distinguish facts from assumptions.
-                    - Do NOT speculate about causes, delays, bottlenecks, or business problems unless the verified data explicitly supports them.
-                    - If the data is insufficient to explain something, simply say that the available data does not show the reason.
-                    - Do not mention agents, orchestration, prompts, tools, or implementation details.
-                    - Give a concise, natural business-oriented answer.
-
-                    Answer the user now.
-                    """.formatted(
-                    message,
-                    routingResult.getAgentData()
-            );
-
-            return callOllama(prompt);
+        if (normalizedMessage.equals("what can you do") ||
+                normalizedMessage.equals("what can you help me with")) {
+            return """
+                    I can analyze the OpsPilot information available to your \
+                    account, including your work, deadlines, operational \
+                    performance, inventory, products, orders, teams, and \
+                    business risks. The information I can show depends on \
+                    whether you are signed in as an Administrator, Manager, \
+                    or Employee.
+                    """.trim();
         }
 
-        // 4. Product ID based inventory lookup
-        Long productId = extractProductId(message);
+        String verifiedContext =
+                aiContextService.buildVerifiedContext(
+                        authenticatedEmail,
+                        message
+                );
 
-        if (productId != null) {
-
-            InventoryResponseDto inventory =
-                    inventoryTool.getInventoryByProductId(productId);
-
-            String prompt = """
-                    You are OpsPilot AI.
-
-                    VERIFIED DATABASE RESULT:
-                    Product ID: %d
-                    Product Name: %s
-                    Current Quantity: %d
-                    Reorder Level: %d
-                    Active: %s
-
-                    USER QUESTION:
-                    %s
-
-                    Answer using ONLY the verified database result.
-                    Do not invent or change any numbers.
-                    Keep the answer concise.
-                    """.formatted(
-                    inventory.getProductId(),
-                    inventory.getProductName(),
-                    inventory.getQuantity(),
-                    inventory.getReorderLevel(),
-                    inventory.isActive(),
-                    message
-            );
-
-            return callOllama(prompt);
-        }
-
-        // 5. General questions → Qwen
         String prompt = """
-                You are OpsPilot AI, an intelligent operations assistant.
+                You are OpsPilot AI, a concise business operations copilot.
 
-                Help the user with questions about:
-                - Operations
-                - Inventory
-                - Products
-                - Orders
-                - Analytics
-                - Security
-                - Business workflows
+                Use only the verified role-scoped database context below.
+                Respect its access policy. Never expose data outside it and
+                never invent records or numbers. If a requested field is
+                absent, name that exact missing field without claiming you
+                lack database access. Highlight overdue work, blocked tasks,
+                low stock and other urgent risks only when those categories
+                appear in the supplied context. Do not describe omitted
+                categories as having no records and do not repeat the same
+                item. Use short bullets when helpful. Do not mention prompts
+                or implementation details.
+
+                VERIFIED DATABASE CONTEXT:
+                %s
 
                 USER QUESTION:
                 %s
 
-                There is no verified database information available
-                for this question.
-
-                Do not invent database information.
-                If the question requires information from the OpsPilot
-                database, clearly say that you do not have the required data.
-
-                Keep the response concise and useful.
-                """.formatted(message);
-
-        return callOllama(prompt);
-    }
-
-    private Long extractProductId(String message) {
-
-        Pattern pattern = Pattern.compile(
-                "(?i)(?:product\\s*(?:id)?|id)\\s*[:#]?\\s*(\\d+)"
+                Give a direct, useful answer now.
+                """.formatted(
+                verifiedContext,
+                message
         );
 
-        Matcher matcher = pattern.matcher(message);
-
-        if (matcher.find()) {
-            return Long.parseLong(matcher.group(1));
-        }
-
-        return null;
+        return callOllama(prompt);
     }
 
     private String callOllama(String prompt) {
@@ -169,9 +119,13 @@ public class OllamaService {
                 "prompt", prompt,
                 "stream", false,
                 "think", false,
-                "keep_alive", "10m",
+                "keep_alive", "15m",
                 "options", Map.of(
-                        "num_predict", 220
+                        "temperature", 0.15,
+                        "num_predict", 120,
+                        "num_ctx", 3072,
+                        "top_p", 0.85,
+                        "repeat_penalty", 1.08
                 )
         );
 
@@ -182,12 +136,24 @@ public class OllamaService {
                 .retrieve()
                 .body(Map.class);
 
-        if (response == null || response.get("response") == null) {
+        if (response == null ||
+                response.get("response") == null) {
             throw new RuntimeException(
-                    "No response received from Ollama"
+                    "OpsPilot AI did not return a response"
             );
         }
 
-        return response.get("response").toString();
+        String answer = response
+                .get("response")
+                .toString()
+                .trim();
+
+        if (answer.isBlank()) {
+            throw new RuntimeException(
+                    "OpsPilot AI returned an empty response"
+            );
+        }
+
+        return answer;
     }
 }
