@@ -2,7 +2,9 @@ package com.opspilot.opspilotbackend.ai.service;
 
 import com.opspilot.opspilotbackend.entity.Company;
 import com.opspilot.opspilotbackend.entity.Department;
+import com.opspilot.opspilotbackend.entity.EmployeeLeave;
 import com.opspilot.opspilotbackend.entity.Inventory;
+import com.opspilot.opspilotbackend.entity.LeaveStatus;
 import com.opspilot.opspilotbackend.entity.Order;
 import com.opspilot.opspilotbackend.entity.OrderStatus;
 import com.opspilot.opspilotbackend.entity.Product;
@@ -12,6 +14,7 @@ import com.opspilot.opspilotbackend.entity.UserRole;
 import com.opspilot.opspilotbackend.entity.WorkTask;
 import com.opspilot.opspilotbackend.repository.CompanyRepository;
 import com.opspilot.opspilotbackend.repository.DepartmentRepository;
+import com.opspilot.opspilotbackend.repository.EmployeeLeaveRepository;
 import com.opspilot.opspilotbackend.repository.InventoryRepository;
 import com.opspilot.opspilotbackend.repository.OrderRepository;
 import com.opspilot.opspilotbackend.repository.ProductRepository;
@@ -29,6 +32,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Locale;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -40,6 +44,7 @@ public class AIContextService {
     private final UserRepository userRepository;
     private final CompanyRepository companyRepository;
     private final DepartmentRepository departmentRepository;
+    private final EmployeeLeaveRepository employeeLeaveRepository;
     private final WorkTaskRepository workTaskRepository;
     private final ProductRepository productRepository;
     private final InventoryRepository inventoryRepository;
@@ -49,6 +54,7 @@ public class AIContextService {
             UserRepository userRepository,
             CompanyRepository companyRepository,
             DepartmentRepository departmentRepository,
+            EmployeeLeaveRepository employeeLeaveRepository,
             WorkTaskRepository workTaskRepository,
             ProductRepository productRepository,
             InventoryRepository inventoryRepository,
@@ -57,6 +63,7 @@ public class AIContextService {
         this.userRepository = userRepository;
         this.companyRepository = companyRepository;
         this.departmentRepository = departmentRepository;
+        this.employeeLeaveRepository = employeeLeaveRepository;
         this.workTaskRepository = workTaskRepository;
         this.productRepository = productRepository;
         this.inventoryRepository = inventoryRepository;
@@ -133,6 +140,29 @@ public class AIContextService {
                 valueOrNone(currentUser.getManagerId())
         );
         context.append("\n");
+
+        context.append("COMPANY OFFICE POLICY\n");
+        appendLine(
+                context,
+                "Office start time",
+                company == null ? null : company.getOfficeStartTime()
+        );
+        appendLine(
+                context,
+                "Office end time",
+                company == null ? null : company.getOfficeEndTime()
+        );
+        appendLine(
+                context,
+                "Working days",
+                company == null ? null : company.getWorkingDays()
+        );
+        appendLine(
+                context,
+                "Company timezone",
+                company == null ? null : company.getTimezone()
+        );
+        context.append("\n");
     }
 
     private void appendAdminContext(
@@ -167,6 +197,7 @@ public class AIContextService {
             appendPeople(context, users);
             appendDepartments(context, departments, users);
             appendTasks(context, tasks, users, departments);
+            appendLeaveSummary(context, companyId, users);
         }
 
         if (scope.includeOperations()) {
@@ -270,6 +301,7 @@ public class AIContextService {
                     directReports,
                     managedDepartments
             );
+            appendLeaveSummary(context, companyId, directReports);
         }
 
         if (scope.includeOperations()) {
@@ -286,7 +318,9 @@ public class AIContextService {
                 normalized,
                 "employee", "team", "manager", "people", "staff",
                 "department", "task", "work", "workload", "deadline",
-                "overdue", "blocked", "assignment", "priority"
+                "overdue", "blocked", "assignment", "priority",
+                "leave", "absent", "absence", "holiday", "office",
+                "timing", "hours", "schedule", "policy"
         );
 
         boolean operations = containsAny(
@@ -372,6 +406,45 @@ public class AIContextService {
                 List.of(employee),
                 visibleDepartments
         );
+
+        appendLeaveSummary(
+                context,
+                employee.getCompanyId(),
+                List.of(employee)
+        );
+    }
+
+    private void appendLeaveSummary(
+            StringBuilder context,
+            Long companyId,
+            List<User> visibleUsers
+    ) {
+        LocalDate today = LocalDate.now();
+        Set<Long> visibleUserIds = visibleUsers.stream()
+                .map(User::getId)
+                .collect(Collectors.toSet());
+
+        long visibleLeaveCount = employeeLeaveRepository
+                .findByCompanyIdAndStatusAndStartDateLessThanEqualAndEndDateGreaterThanEqual(
+                        companyId,
+                        LeaveStatus.APPROVED,
+                        today,
+                        today
+                )
+                .stream()
+                .map(EmployeeLeave::getUserId)
+                .filter(visibleUserIds::contains)
+                .distinct()
+                .count();
+
+        context.append("LEAVE SUMMARY\n");
+        appendLine(context, "Date", today);
+        appendLine(
+                context,
+                "Visible employees on approved leave today",
+                visibleLeaveCount
+        );
+        context.append("\n");
     }
 
     private void appendPeople(

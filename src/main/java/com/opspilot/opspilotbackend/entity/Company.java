@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 
 @Entity
 @Table(name = "companies")
@@ -26,6 +27,14 @@ public class Company {
     private String phone;
 
     private String address;
+
+    private LocalTime officeStartTime;
+
+    private LocalTime officeEndTime;
+
+    private String workingDays;
+
+    private String timezone;
 
     @Column(nullable = false)
     private boolean active;

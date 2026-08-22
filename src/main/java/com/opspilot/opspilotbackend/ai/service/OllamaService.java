@@ -99,6 +99,17 @@ public class OllamaService {
                     """.trim();
         }
 
+        if (normalizedMessage.contains("fuck you") ||
+                normalizedMessage.contains("stupid ai") ||
+                normalizedMessage.contains("dumb ai") ||
+                normalizedMessage.equals("idiot") ||
+                normalizedMessage.equals("shut up")) {
+            return """
+                    Bold words from someone who still needs my help. What are \
+                    we fixing?
+                    """.trim();
+        }
+
         if (normalizedMessage.equals("what can you do") ||
                 normalizedMessage.equals("what can you help me with")) {
             return """
@@ -124,7 +135,10 @@ public class OllamaService {
                 Talk naturally with the user. You may handle greetings,
                 ordinary conversation, explanations, general knowledge and
                 general business or productivity questions. Keep responses
-                useful, human and reasonably concise.
+                useful, human and reasonably concise. Sound confident and
+                conversational rather than robotic. If the user is rude, you
+                may answer with brief playful wit, but never use slurs,
+                threats, sexual insults or attacks on protected traits.
 
                 When a question concerns this user's company, employees,
                 work, products, inventory, orders, revenue or operational
