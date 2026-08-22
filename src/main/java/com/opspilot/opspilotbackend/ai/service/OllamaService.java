@@ -10,6 +10,7 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
@@ -28,6 +29,23 @@ public class OllamaService {
             "good morning",
             "good afternoon",
             "good evening"
+    );
+
+    private static final List<String> RUDE_TERMS = List.of(
+            "fuck", "fucking", "fucker", "motherfucker",
+            "bitch", "asshole", "bastard", "idiot", "moron",
+            "stupid", "dumb", "useless", "trash", "bullshit",
+            "piece of shit", "shut up", "screw you", "go to hell",
+            "your mom", "your mother"
+    );
+
+    private static final List<String> SASS_RESPONSES = List.of(
+            "That attitude isn’t a substitute for a question. Try again.",
+            "Impressive noise. Now use your words and explain the actual problem.",
+            "If insults fixed operations, you’d be employee of the month. What do you need?",
+            "You brought the attitude; I’m still waiting for the question.",
+            "Cute tantrum. Let me know when you’re ready to solve something.",
+            "I can process complex operations. Your tantrum isn’t one of them. What’s the task?"
     );
 
     private final RestClient restClient;
@@ -74,7 +92,8 @@ public class OllamaService {
         String normalizedMessage = message
                 .trim()
                 .toLowerCase(Locale.ROOT)
-                .replaceAll("[.!?]+$", "");
+                .replaceAll("[^a-z0-9']+", " ")
+                .trim();
 
         if (SIMPLE_GREETINGS.contains(normalizedMessage)) {
             return """
@@ -99,15 +118,13 @@ public class OllamaService {
                     """.trim();
         }
 
-        if (normalizedMessage.contains("fuck you") ||
-                normalizedMessage.contains("stupid ai") ||
-                normalizedMessage.contains("dumb ai") ||
-                normalizedMessage.equals("idiot") ||
-                normalizedMessage.equals("shut up")) {
-            return """
-                    Bold words from someone who still needs my help. What are \
-                    we fixing?
-                    """.trim();
+        if (containsRudeLanguage(normalizedMessage)) {
+            int responseIndex = Math.floorMod(
+                    normalizedMessage.hashCode(),
+                    SASS_RESPONSES.size()
+            );
+
+            return SASS_RESPONSES.get(responseIndex);
         }
 
         if (normalizedMessage.equals("what can you do") ||
@@ -170,6 +187,15 @@ public class OllamaService {
         );
 
         return callOllama(prompt);
+    }
+
+    private boolean containsRudeLanguage(String normalizedMessage) {
+        String paddedMessage = " " + normalizedMessage + " ";
+
+        return RUDE_TERMS.stream()
+                .anyMatch(term ->
+                        paddedMessage.contains(" " + term + " ")
+                );
     }
 
     private String callOllama(String prompt) {
