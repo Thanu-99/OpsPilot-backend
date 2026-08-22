@@ -87,6 +87,10 @@ public class OllamaService {
         if (normalizedMessage.contains("who made you") ||
                 normalizedMessage.contains("who created you") ||
                 normalizedMessage.contains("who built you") ||
+                normalizedMessage.contains("who developed you") ||
+                normalizedMessage.contains("who designed you") ||
+                normalizedMessage.contains("who is your developer") ||
+                normalizedMessage.contains("who is your creator") ||
                 normalizedMessage.contains("your creator") ||
                 normalizedMessage.contains("your developer")) {
             return """
