@@ -48,9 +48,9 @@ public class AuthServiceImpl implements AuthService {
     public AuthResponse register(RegisterRequest request) {
 
         if (userRepository.findByEmail(request.getEmail()).isPresent()) {
-            return AuthResponse.builder()
-                    .message("Email already exists")
-                    .build();
+            throw new IllegalArgumentException(
+                    "An account already exists with this email. Please sign in."
+            );
         }
 
         User user = User.builder()
@@ -123,17 +123,8 @@ public class AuthServiceImpl implements AuthService {
         User existingUser = findGoogleUser(identity);
 
         if (existingUser != null) {
-            linkGoogleIdentity(existingUser, identity);
-            ensureActive(existingUser);
-
-            String token = jwtService.generateToken(
-                    existingUser.getEmail()
-            );
-
-            return buildAuthResponse(
-                    existingUser,
-                    token,
-                    "Existing account signed in with Google"
+            throw new IllegalArgumentException(
+                    "An account already exists with this email. Please sign in."
             );
         }
 
